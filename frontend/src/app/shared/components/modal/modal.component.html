@@ -1,0 +1,23 @@
+<div class="fixed inset-0 z-[60] bg-black/60 px-4 py-6" (click)="onBackdropClick()"></div>
+
+<section
+  class="fixed left-1/2 top-1/2 z-[70] max-h-[90vh] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl border border-border bg-surface text-text-primary shadow-2xl"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="title"
+>
+  <header class="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+    <h2 class="text-lg font-semibold">{{ title }}</h2>
+    <button
+      type="button"
+      class="rounded-xl border border-border px-3 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+      (click)="closeModal.emit()"
+    >
+      Cerrar
+    </button>
+  </header>
+
+  <div class="max-h-[calc(90vh-5rem)] overflow-y-auto px-5 py-5">
+    <ng-content />
+  </div>
+</section>

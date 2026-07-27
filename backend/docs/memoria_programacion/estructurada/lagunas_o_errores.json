@@ -1,0 +1,59 @@
+{
+  "activas": [
+    {
+      "id": "ubicacion-servicios-memoria",
+      "concepto": "Ubicacion de Servicios en Memoria",
+      "detectada_en": "2026-04-23",
+      "descripcion": "Asocia la pesadez de un servicio con el Stack, cuando los servicios como objetos residen en el Heap.",
+      "como_se_resolvera": "Reforzar al analizar el impacto del Garbage Collector en servicios Scoped."
+    },
+    {
+      "id": "materializacion-prematura-ef-core-reintroduccion",
+      "concepto": "Materializacion prematura en EF Core",
+      "detectada_en": "2026-04-29",
+      "descripcion": "Pendiente de reintroducir en un ejercicio de integracion backend-frontend para confirmar consolidacion fuera del caso original.",
+      "como_se_resolvera": "Plantear un ejercicio donde deba decidir entre IQueryable, ToListAsync y agregaciones SQL antes de materializar."
+    },
+    {
+      "id": "separacion-fisica-ensamblados",
+      "concepto": "Separacion fisica de ensamblados y restricciones de referencias",
+      "detectada_en": "2026-06-12",
+      "descripcion": "Comprende Clean Architecture conceptualmente, pero falta consolidar con proyectos .csproj separados e InternalsVisibleTo.",
+      "como_se_resolvera": "Crear una solucion fisica por capas y experimentar restricciones reales del compilador ante referencias cruzadas."
+    }
+  ],
+  "resueltas": [
+    {
+      "id": "mutacion-colecciones-iteracion",
+      "concepto": "Mutacion de colecciones en iteracion",
+      "detectada_en": "2026-04-22",
+      "descripcion": "Intentaba modificar listas dentro de foreach sin entender la corrupcion del iterador.",
+      "fecha_resolucion": "2026-04-23",
+      "como_se_resolvio": "Explicacion del mecanismo interno y aplicacion exitosa de for inverso en el reto de evaluacion."
+    },
+    {
+      "id": "materializacion-prematura-linq",
+      "concepto": "Materializacion Prematura en LINQ",
+      "detectada_en": "2026-04-29",
+      "descripcion": "Sabia usar LINQ pero no distinguia que ToListAsync descarga datos a RAM e impide que calculos posteriores se hagan en SQL.",
+      "fecha_resolucion": "2026-04-29",
+      "como_se_resolvio": "Proyecto Integrador API de Inventario, refactorizando para usar SumAsync directamente sobre IQueryable."
+    },
+    {
+      "id": "mecanismos-desuscripcion",
+      "concepto": "Mecanismos de desuscripcion",
+      "detectada_en": "2026-05-05",
+      "descripcion": "Necesitaba consolidar por que Observables huerfanos pueden producir fugas de memoria.",
+      "fecha_resolucion": "2026-05-05",
+      "como_se_resolvio": "Demostro comprension total al explicar el comportamiento del Heap ante Observables huerfanos."
+    },
+    {
+      "id": "direccion-interfaces-inversion-dependencias",
+      "concepto": "Direccion de Interfaces en Inversion de Dependencias",
+      "detectada_en": "2026-06-12",
+      "descripcion": "Tendia a situar interfaces de repositorios en Infraestructura, rompiendo la regla de dependencia hacia el centro.",
+      "fecha_resolucion": "2026-06-12",
+      "como_se_resolvio": "Evaluacion adversarial y refactorizacion donde movio contratos a Aplicacion y forzo a Infraestructura a depender de ellos."
+    }
+  ]
+}

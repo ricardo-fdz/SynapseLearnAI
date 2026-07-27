@@ -1,0 +1,35 @@
+{
+  "alias": "Ricky",
+  "lenguaje_principal": "DOTNET/Angular",
+  "objetivo_declarado": "Trabajo, entrevistas tecnicas y proyectos personales orientados a backend, frontend y arquitectura de sistemas.",
+  "estilo_aprendizaje": {
+    "prefiere": "Combinacion de analogias, ejemplos directos, retos de optimizacion, proyectos y evaluacion adversarial.",
+    "ritmo_sesion": "Sesiones progresivas con exigencia tecnica alta y foco en razonamiento.",
+    "reaccion_ante_errores": "Puede frustrarse ante bloqueos, pero responde bien a debugging socratico y retos concretos.",
+    "nivel_autonomia": "Trabaja bien con pistas minimas cuando el problema esta bien acotado."
+  },
+  "preferencias_comunicacion": {
+    "idioma": "espanol",
+    "tono_tutor": "estricto, directo, paciente cuando hay bloqueo y exigente con arquitectura y rendimiento"
+  },
+  "notas_tutor": [
+    {
+      "fecha": "2026-05-05",
+      "nota": "Demuestra excelente capacidad de razonamiento logico-matematico, especialmente al deducir estrategias como for inverso. Requiere refuerzo ocasional en visualizacion fisica de memoria para evitar confusiones Stack/Heap."
+    },
+    {
+      "fecha": "2026-05-05",
+      "nota": "Responde muy bien a retos de optimizacion. Evoluciono de programador de sintaxis a disenador de flujos eficientes. Mantener exigencia sobre rendimiento de consultas SQL vs RAM."
+    },
+    {
+      "fecha": "2026-05-05",
+      "nota": "Su estilo de aprendizaje se orienta hacia Arquitectura de Sistemas: le interesa mas como conectar piezas que la sintaxis pura de Angular o C#."
+    },
+    {
+      "fecha": "2026-06-12",
+      "nota": "Muestra respuesta sobresaliente ante el rol de arquitecto y evaluacion adversarial. Su razonamiento logico supera su dominio sintactico; los desafios de diseno de sistemas son la mejor via para progresar."
+    }
+  ],
+  "diagnostico_nivel": "Avanzado Inicial en Arquitectura de Software (.NET); Intermedio Avanzado en integracion .NET/Angular.",
+  "ultima_actualizacion": "2026-06-12"
+}

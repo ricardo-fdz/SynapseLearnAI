@@ -1,0 +1,94 @@
+<div class="min-h-dvh bg-canvas text-text-primary lg:flex">
+  <div class="hidden h-screen shrink-0 lg:block lg:w-80">
+    <app-sidebar />
+  </div>
+
+  <div class="flex min-h-dvh min-w-0 flex-1 flex-col lg:h-screen lg:min-h-0">
+    <div class="flex items-center justify-between border-b border-border bg-canvas px-4 py-3 lg:hidden">
+      <button
+        type="button"
+        class="rounded-xl border border-border px-3 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+        (click)="openMobileSidebar()"
+      >
+        Tutores
+      </button>
+      <span class="hidden text-sm font-semibold uppercase tracking-[0.24em] text-primary sm:inline">Synapse Learn</span>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          class="rounded-xl border border-border px-3 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+          (click)="themeService.toggleTheme()"
+        >
+          {{ themeService.theme() === 'dark' ? 'Claro' : 'Oscuro' }}
+        </button>
+        <a
+          routerLink="/diagnostico"
+          class="rounded-xl bg-primary-dim px-3 py-2 text-sm font-medium text-bubble-user-text transition hover:opacity-90"
+        >
+          Diagnóstico
+        </a>
+      </div>
+    </div>
+
+    <div class="hidden items-center justify-end border-b border-border bg-canvas px-5 py-3 lg:flex xl:hidden">
+      <button
+        type="button"
+        class="rounded-xl border border-border px-3 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+        (click)="themeService.toggleTheme()"
+      >
+        Tema {{ themeService.theme() === 'dark' ? 'claro' : 'oscuro' }}
+      </button>
+      <button
+        type="button"
+        class="ml-2 rounded-xl bg-primary-dim px-3 py-2 text-sm font-medium text-bubble-user-text transition hover:opacity-90"
+        (click)="appState.toggleDrawer()"
+      >
+        Diagnóstico
+      </button>
+    </div>
+
+    <div class="hidden items-center justify-end border-b border-border bg-canvas px-5 py-3 xl:flex">
+      <button
+        type="button"
+        class="rounded-xl border border-border px-3 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+        (click)="themeService.toggleTheme()"
+      >
+        Tema {{ themeService.theme() === 'dark' ? 'claro' : 'oscuro' }}
+      </button>
+      <button
+        type="button"
+        class="ml-2 rounded-xl bg-primary-dim px-3 py-2 text-sm font-medium text-bubble-user-text transition hover:opacity-90"
+        (click)="appState.toggleDrawer()"
+      >
+        Diagnóstico
+      </button>
+    </div>
+
+    <div class="min-h-0 flex-1">
+      <app-chat />
+    </div>
+  </div>
+
+  @if (appState.drawerOpen()) {
+    <div class="hidden h-screen w-80 shrink-0 xl:block">
+      <app-drawer />
+    </div>
+  }
+
+  @if (appState.drawerOpen()) {
+    <div class="fixed inset-0 z-40 hidden bg-black/50 lg:block xl:hidden" (click)="appState.closeDrawer()"></div>
+    <div class="fixed inset-y-0 right-0 z-50 hidden w-full max-w-sm lg:block xl:hidden">
+      <app-drawer (closeRequested)="appState.closeDrawer()" />
+    </div>
+  }
+
+  @if (mobileSidebarOpen()) {
+    <div class="fixed inset-0 z-[80] bg-surface lg:hidden">
+      <app-sidebar
+        [showCloseButton]="true"
+        (closeRequested)="closeMobileSidebar()"
+        (sessionSelected)="closeMobileSidebar()"
+      />
+    </div>
+  }
+</div>

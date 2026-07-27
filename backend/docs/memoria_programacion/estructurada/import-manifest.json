@@ -1,0 +1,27 @@
+{
+  "targetTutorId": 1,
+  "source": "docs/memoria_programacion/*.docx",
+  "generatedFor": "LearningAgents standard memory entries",
+  "entries": [
+    {
+      "key": "memoria_sesion",
+      "file": "memoria_sesion.json"
+    },
+    {
+      "key": "perfil_estudiante",
+      "file": "perfil_estudiante.json"
+    },
+    {
+      "key": "mapa_dominio",
+      "file": "mapa_dominio.json"
+    },
+    {
+      "key": "lagunas_o_errores",
+      "file": "lagunas_o_errores.json"
+    },
+    {
+      "key": "historial_actividades",
+      "file": "historial_actividades.json"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "proyectos": [
+    {
+      "id": "api-inventario-riesgo-financiero-2026-04-27",
+      "nombre": "API de Inventario (Servicio de Calculo de Riesgo Financiero)",
+      "fecha": "2026-04-27",
+      "temas_integrados": [
+        "Inyeccion de Dependencias",
+        "LINQ Avanzado",
+        "Entity Framework Core (DbSet)",
+        "Programacion Asincrona (async/await)"
+      ],
+      "nivel_ayuda_requerido": "Pistas minimas; debugging socratico para evitar materializacion prematura.",
+      "problemas_encontrados": "Inicialmente descargo toda la tabla a memoria con ToListAsync antes de sumar.",
+      "resultado": "Completado",
+      "observaciones_tutor": "Demostro excelente intuicion al deducir SumAsync. Tras recibir feedback sobre materializacion de EF Core, refactorizo hacia una solucion optima delegando el calculo al motor SQL mediante ejecucion diferida."
+    },
+    {
+      "id": "clean-architecture-monolito-conceptual-2026-06-12",
+      "nombre": "Refactorizacion Clean Architecture de monolito conceptual",
+      "fecha": "2026-06-12",
+      "temas_integrados": [
+        "Clean Architecture",
+        "Inversion de Dependencias",
+        "Dominio puro",
+        "Inmutabilidad",
+        "Servicios asincronos",
+        "IEmailService"
+      ],
+      "nivel_ayuda_requerido": "Evaluacion adversarial con pistas puntuales.",
+      "problemas_encontrados": "Tendencia inicial a ubicar contratos en Infraestructura y omitir inicializacion de estados de auditoria en fabricas de dominio.",
+      "resultado": "Completado",
+      "observaciones_tutor": "Movio contratos hacia Aplicacion, respeto la direccion de dependencias y aplico mutacion controlada con fabricas y constructores privados."
+    }
+  ]
+}

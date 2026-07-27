@@ -1,0 +1,78 @@
+@import 'katex/dist/katex.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-canvas: #141414;
+  --color-surface: #1e1e1c;
+  --color-surface-2: #252523;
+  --color-primary: #7a9455;
+  --color-primary-dim: #4e5b37;
+  --color-primary-light: rgba(122, 148, 85, 0.14);
+  --color-secondary: #7a9a9e;
+  --color-text-primary: #e8e6e0;
+  --color-text-secondary: #8a8880;
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-border-strong: rgba(255, 255, 255, 0.11);
+  --color-bubble-user-bg: #4e5b37;
+  --color-bubble-user-text: #e8f0dc;
+}
+
+[data-theme='light'] {
+  --color-canvas: #f5f6f7;
+  --color-surface: #e1ded7;
+  --color-surface-2: #d8d5ce;
+  --color-primary: #4e5b37;
+  --color-primary-dim: #3d4829;
+  --color-primary-light: rgba(78, 91, 55, 0.12);
+  --color-secondary: #5e7174;
+  --color-text-primary: #0f0f0f;
+  --color-text-secondary: #575757;
+  --color-border: rgba(0, 0, 0, 0.09);
+  --color-border-strong: rgba(0, 0, 0, 0.14);
+  --color-bubble-user-bg: #4e5b37;
+  --color-bubble-user-text: #f0f4e8;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* {
+  scrollbar-color: var(--color-primary-dim) var(--color-surface);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-primary-dim);
+  border: 2px solid var(--color-surface);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--color-surface);
+}

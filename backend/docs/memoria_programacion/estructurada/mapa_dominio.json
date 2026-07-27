@@ -1,0 +1,95 @@
+{
+  "temas": [
+    {
+      "id": "inyeccion-de-dependencias",
+      "nombre": "Inyeccion de Dependencias",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-04-23",
+      "notas": "Capacidad para elegir y justificar ciclos de vida y aplicar interfaces."
+    },
+    {
+      "id": "bucles-colecciones-avanzado",
+      "nombre": "Bucles y Colecciones (Avanzado)",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-04-23",
+      "notas": "Domina el impacto de la mutacion en caliente y el uso de for inverso."
+    },
+    {
+      "id": "arquitectura-api-controllers",
+      "nombre": "Arquitectura API (Controllers)",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-04-23",
+      "notas": "Implementacion correcta de controladores con inyeccion por constructor."
+    },
+    {
+      "id": "entity-framework-core-avanzado",
+      "nombre": "Entity Framework Core (Avanzado)",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-04-29",
+      "notas": "Domina ejecucion diferida y evita materializacion innecesaria."
+    },
+    {
+      "id": "dto-seguridad-api",
+      "nombre": "Patron DTO y Seguridad API",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-04-29",
+      "notas": "Comprende la importancia de no exponer entidades y sabe mapear con Select."
+    },
+    {
+      "id": "programacion-asincrona-task",
+      "nombre": "Programacion Asincrona (Task)",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-04-29",
+      "notas": "Uso fluido de async/await en servicios y controladores."
+    },
+    {
+      "id": "httpclient-angular",
+      "nombre": "HttpClient (Angular)",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-05-05",
+      "notas": "Domina peticiones, tipado y operadores de resiliencia."
+    },
+    {
+      "id": "rxjs-state-observables",
+      "nombre": "RxJS (State Observables)",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-05-05",
+      "notas": "Capaz de disenar flujos de estado unificados y resilientes."
+    },
+    {
+      "id": "gestion-memoria-angular",
+      "nombre": "Gestion de Memoria (Angular)",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-05-05",
+      "notas": "Domina patrones de desuscripcion para evitar fugas en el Heap."
+    },
+    {
+      "id": "angular-signals-computed-effect",
+      "nombre": "Angular Signals (Computed vs Effect)",
+      "nivel": 1,
+      "ultima_evaluacion": "2026-05-06",
+      "notas": "Comenzo a conectar conceptos."
+    },
+    {
+      "id": "integracion-rxjs-signals",
+      "nombre": "Integracion RxJS + Signals",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-05-11",
+      "notas": "Capaz de decidir la herramienta adecuada segun la complejidad del flujo."
+    },
+    {
+      "id": "clean-architecture-dotnet",
+      "nombre": "Clean Architecture en .NET",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-06-12",
+      "notas": "Demostro dominio en examen practico, invirtiendo dependencias y aislando el dominio."
+    },
+    {
+      "id": "patrones-diseno-dominio",
+      "nombre": "Patrones de Diseno de Dominio (Inmutabilidad/Fabricas)",
+      "nivel": 3,
+      "ultima_evaluacion": "2026-06-12",
+      "notas": "Aplico constructores privados, metodos estaticos de fabrica y mutacion controlada con exito."
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+:host {
+  display: block;
+}
+
+.markdown-message {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.markdown-message :is(h1, h2, h3) {
+  color: var(--color-text-primary);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.markdown-message h1 {
+  font-size: 1.35rem;
+}
+
+.markdown-message h2 {
+  font-size: 1.15rem;
+}
+
+.markdown-message h3 {
+  font-size: 1rem;
+}
+
+.markdown-message p {
+  margin: 0;
+}
+
+.markdown-message :is(ul, ol) {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.markdown-message ul {
+  list-style: disc;
+}
+
+.markdown-message ol {
+  list-style: decimal;
+}
+
+.markdown-message blockquote {
+  border-left: 3px solid var(--color-primary);
+  color: var(--color-text-secondary);
+  margin: 0;
+  padding: 0.25rem 0 0.25rem 0.85rem;
+}
+
+.markdown-message code {
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  color: var(--color-text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.88em;
+  padding: 0.08rem 0.35rem;
+}
+
+.markdown-message pre {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  margin: 0;
+  max-width: 100%;
+  overflow: auto;
+  padding: 0.85rem;
+}
+
+.markdown-message pre code {
+  background: transparent;
+  border: 0;
+  display: block;
+  padding: 0;
+  white-space: pre;
+}
+
+.markdown-message hr {
+  border: 0;
+  border-top: 1px solid var(--color-border-strong);
+  margin: 0.25rem 0;
+}
+
+.markdown-message .math-block {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.15rem 0;
+}
+
+.markdown-message .math-inline {
+  display: inline;
+}

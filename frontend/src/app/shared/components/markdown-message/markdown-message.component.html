@@ -1,0 +1,66 @@
+<div class="markdown-message">
+  @for (block of blocks(); track $index) {
+    @switch (block.type) {
+      @case ('heading') {
+        @if (block.level === 1) {
+          <h1><ng-container *ngTemplateOutlet="inline; context: { tokens: block.tokens }" /></h1>
+        } @else if (block.level === 2) {
+          <h2><ng-container *ngTemplateOutlet="inline; context: { tokens: block.tokens }" /></h2>
+        } @else {
+          <h3><ng-container *ngTemplateOutlet="inline; context: { tokens: block.tokens }" /></h3>
+        }
+      }
+      @case ('paragraph') {
+        <p><ng-container *ngTemplateOutlet="inline; context: { tokens: block.tokens }" /></p>
+      }
+      @case ('quote') {
+        <blockquote><ng-container *ngTemplateOutlet="inline; context: { tokens: block.tokens }" /></blockquote>
+      }
+      @case ('unordered-list') {
+        <ul>
+          @for (item of block.items; track $index) {
+            <li><ng-container *ngTemplateOutlet="inline; context: { tokens: item }" /></li>
+          }
+        </ul>
+      }
+      @case ('ordered-list') {
+        <ol>
+          @for (item of block.items; track $index) {
+            <li><ng-container *ngTemplateOutlet="inline; context: { tokens: item }" /></li>
+          }
+        </ol>
+      }
+      @case ('code-block') {
+        <pre><code>{{ block.text }}</code></pre>
+      }
+      @case ('rule') {
+        <hr />
+      }
+      @case ('math') {
+        <div class="math-block" [innerHTML]="block.html"></div>
+      }
+    }
+  }
+</div>
+
+<ng-template #inline let-tokens="tokens">
+  @for (token of tokens; track $index) {
+    @switch (token.type) {
+      @case ('bold') {
+        <strong>{{ token.text }}</strong>
+      }
+      @case ('italic') {
+        <em>{{ token.text }}</em>
+      }
+      @case ('code') {
+        <code>{{ token.text }}</code>
+      }
+      @case ('math') {
+        <span class="math-inline" [innerHTML]="token.html"></span>
+      }
+      @default {
+        <span>{{ token.text }}</span>
+      }
+    }
+  }
+</ng-template>
