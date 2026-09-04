@@ -155,18 +155,12 @@ internal sealed class PromptBuilder(
         builder.AppendLine("## Memoria: memoria_sesion");
         var wrote = false;
 
-        wrote |= AppendValue(builder, root, "tema_actual", "Tema actual");
-        wrote |= AppendValue(builder, root, "objetivo_actual", "Objetivo actual");
-        wrote |= AppendValue(builder, root, "estado", "Estado");
-        wrote |= AppendValue(builder, root, "nivel_actual", "Nivel actual");
         wrote |= AppendValue(builder, root, "fecha_ultima_sesion", "Fecha ultima sesion");
-        wrote |= AppendValue(builder, root, "ultimo_paso", "Ultimo paso");
-        wrote |= AppendValue(builder, root, "ultimo_ejercicio", "Ultimo ejercicio");
-        wrote |= AppendValue(builder, root, "siguiente_paso", "Siguiente paso");
-        wrote |= AppendValue(builder, root, "proximo_paso", "Proximo paso");
         wrote |= AppendValue(builder, root, "temas_dominados_ultima_sesion", "Temas dominados ultima sesion");
+        wrote |= AppendValue(builder, root, "ultimo_ejercicio", "Ultimo ejercicio");
         wrote |= AppendValue(builder, root, "tiempo_invertido_minutos", "Tiempo invertido minutos");
-        wrote |= AppendValue(builder, root, "notas", "Notas");
+        wrote |= AppendValue(builder, root, "siguiente_tema", "Siguiente tema");
+        wrote |= AppendValue(builder, root, "proximo_paso", "Proximo paso");
 
         if (!wrote)
         {
@@ -196,7 +190,7 @@ internal sealed class PromptBuilder(
             builder.AppendLine($"- **{name}**: {level}");
             AppendNestedValue(builder, topic, "evidencia", "Evidencia");
             AppendNestedValue(builder, topic, "notas", "Notas");
-            AppendNestedValue(builder, topic, "ultima_revision", "Ultima revision");
+            AppendNestedValue(builder, topic, "ultima_evaluacion", "Ultima evaluacion");
         }
 
         if (!wrote)
@@ -224,6 +218,9 @@ internal sealed class PromptBuilder(
         return builder.ToString();
     }
 
+    private const int MaxActivityHistoryItems = 5;
+    private const int MaxFieldChars = 500;
+
     private static string RenderActivityHistory(JsonElement root)
     {
         var builder = new StringBuilder();
@@ -236,16 +233,38 @@ internal sealed class PromptBuilder(
 
         if (activities.ValueKind != JsonValueKind.Array)
         {
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("proyectos", out var proyectos) && proyectos.ValueKind == JsonValueKind.Array)
+            {
+                activities = proyectos;
+            }
+            else
+            {
+                builder.AppendLine("Sin actividades registradas.");
+                return builder.ToString();
+            }
+        }
+
+        if (activities.ValueKind != JsonValueKind.Array)
+        {
             builder.AppendLine("Sin actividades registradas.");
             return builder.ToString();
         }
 
+        var items = activities.EnumerateArray().ToArray();
+        var truncated = items.Length > MaxActivityHistoryItems;
+        var slice = truncated ? items.TakeLast(MaxActivityHistoryItems).ToArray() : items;
+
+        if (truncated)
+        {
+            builder.AppendLine($"_Mostrando {MaxActivityHistoryItems} de {items.Length} actividades (más recientes)._");
+        }
+
         var wrote = false;
-        foreach (var activity in activities.EnumerateArray())
+        foreach (var activity in slice)
         {
             wrote = true;
             var title = GetString(activity, "titulo") ?? GetString(activity, "actividad") ?? GetString(activity, "nombre") ?? "Actividad sin titulo";
-            builder.AppendLine($"- **{title}**");
+            builder.AppendLine($"- **{Truncate(title, MaxFieldChars)}**");
             AppendNestedValue(builder, activity, "tipo", "Tipo");
             AppendNestedValue(builder, activity, "resultado", "Resultado");
             AppendNestedValue(builder, activity, "fecha", "Fecha");
@@ -259,6 +278,9 @@ internal sealed class PromptBuilder(
 
         return builder.ToString();
     }
+
+    private static string Truncate(string value, int maxChars) =>
+        value.Length <= maxChars ? value : value[..maxChars] + "…";
 
     private static void AppendGapList(StringBuilder builder, JsonElement root, string propertyName, string emptyMessage)
     {
@@ -338,16 +360,20 @@ internal sealed class PromptBuilder(
         _ => false
     };
 
-    private static string ToMarkdownValue(JsonElement value) => value.ValueKind switch
+    private static string ToMarkdownValue(JsonElement value)
     {
-        JsonValueKind.String => value.GetString() ?? string.Empty,
-        JsonValueKind.Number => value.GetRawText(),
-        JsonValueKind.True => "true",
-        JsonValueKind.False => "false",
-        JsonValueKind.Array => string.Join(", ", value.EnumerateArray().Where(item => !IsEmpty(item)).Select(ToMarkdownValue)),
-        JsonValueKind.Object => string.Join(", ", value.EnumerateObject()
-            .Where(property => !IsEmpty(property.Value))
-            .Select(property => $"{property.Name}: {ToMarkdownValue(property.Value)}")),
-        _ => string.Empty
-    };
+        var raw = value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString() ?? string.Empty,
+            JsonValueKind.Number => value.GetRawText(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            JsonValueKind.Array => string.Join(", ", value.EnumerateArray().Where(item => !IsEmpty(item)).Select(ToMarkdownValue)),
+            JsonValueKind.Object => string.Join(", ", value.EnumerateObject()
+                .Where(property => !IsEmpty(property.Value))
+                .Select(property => $"{property.Name}: {ToMarkdownValue(property.Value)}")),
+            _ => string.Empty
+        };
+        return raw.Length > MaxFieldChars ? raw[..MaxFieldChars] + "…" : raw;
+    }
 }

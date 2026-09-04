@@ -22,10 +22,10 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
     private static readonly HashSet<string> SessionMemoryFields =
     [
         "fecha_ultima_sesion",
-        "nivel_actual",
         "temas_dominados_ultima_sesion",
         "ultimo_ejercicio",
         "tiempo_invertido_minutos",
+        "siguiente_tema",
         "proximo_paso"
     ];
 
@@ -236,11 +236,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
     {
         if (patch.Operation == MemoryPatchOperation.Add)
         {
-            if (patch.Path != "/temas")
-            {
-                throw new InvalidMemoryPatchException("mapa_dominio Add only supports path '/temas'.");
-            }
-
+            var arrayName = DomainMapArrayNameForAdd(patch.Path);
             var topic = RequireObjectValue(patch.Value, "mapa_dominio Add requires an object value.");
             var topicId = RequireString(topic, "id", "mapa_dominio topic requires 'id'.");
             var topicName = TryGetString(topic, "nombre") ?? GenerateNameFromId(topicId);
@@ -250,7 +246,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
             }
             topic["nombre"] = topicName;
             RequireProperty(topic, "nivel", "mapa_dominio topic requires 'nivel'.");
-            var topics = GetRequiredArray(root, "temas", "mapa_dominio requires a 'temas' array.");
+            var topics = GetOrCreateArray(root, arrayName);
 
             var existing = FindByIdOrNull(topics, topicId);
             if (existing is not null)
@@ -272,17 +268,17 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
 
         if (patch.Operation == MemoryPatchOperation.Update)
         {
-            var field = TwoSegmentField(patch.Path, "temas", DomainMapUpdatePathError);
+            var (arrayName, field) = DomainMapArrayAndField(patch.Path);
             if (!DomainTopicFields.Contains(field) || field == "id")
             {
                 throw new InvalidMemoryPatchException(DomainMapUpdatePathError);
             }
 
             var topic = FindById(
-                GetRequiredArray(root, "temas", "mapa_dominio requires a 'temas' array."),
+                GetRequiredArray(root, arrayName, $"mapa_dominio requires a '{arrayName}' array."),
                 patch.TargetId!,
-                "mapa_dominio topic",
-                "targetId must be the 'id' field of an existing tema in mapa_dominio, not its 'nombre'. Use leer_memoria with key='mapa_dominio' first to obtain the valid tema ids.");
+                DomainMapItemLabel(arrayName),
+                $"targetId debe ser el campo 'id' de un {DomainMapItemLabel(arrayName)} existente en mapa_dominio, no su 'nombre'. Usa leer_memoria con key='mapa_dominio' para obtener los ids válidos.");
             topic[field] = CloneValue(patch.Value);
             return patch.Reason;
         }
@@ -290,8 +286,36 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
         throw new InvalidMemoryPatchException("mapa_dominio only supports Add and Update operations.");
     }
 
+    private const string DomainMapArrayNameError =
+        "mapa_dominio Add only supports path '/temas' or '/habilidades'.";
+
     private const string DomainMapUpdatePathError =
-        "El path debe apuntar a UN campo específico del tema, con el formato '/temas/nombreDelCampo' (ej. '/temas/nivel' o '/temas/notas'), siempre empezando con '/'. No puedes actualizar varios campos en una sola llamada; si necesitas actualizar tanto 'nivel' como 'notas', haz DOS llamadas a guardar_memoria, una por campo. ACCIÓN REQUERIDA AHORA: corrige el path y vuelve a llamar guardar_memoria con un solo campo a la vez, antes de responder al usuario.";
+        "El path debe apuntar a UN campo específico del ítem, con el formato '/temas/nombreDelCampo' o '/habilidades/nombreDelCampo' (ej. '/temas/nivel' o '/temas/notas'), siempre empezando con '/'. No puedes actualizar varios campos en una sola llamada; si necesitas actualizar tanto 'nivel' como 'notas', haz DOS llamadas a guardar_memoria, una por campo. ACCIÓN REQUERIDA AHORA: corrige el path y vuelve a llamar guardar_memoria con un solo campo a la vez, antes de responder al usuario.";
+
+    private static string DomainMapArrayNameForAdd(string path)
+    {
+        var segments = PathSegments(path);
+        if (segments.Length != 1 || segments[0] is not ("temas" or "habilidades"))
+        {
+            throw new InvalidMemoryPatchException(DomainMapArrayNameError);
+        }
+
+        return segments[0];
+    }
+
+    private static (string ArrayName, string Field) DomainMapArrayAndField(string path)
+    {
+        var segments = PathSegments(path);
+        if (segments.Length != 2 || segments[0] is not ("temas" or "habilidades"))
+        {
+            throw new InvalidMemoryPatchException(DomainMapUpdatePathError);
+        }
+
+        return (segments[0], segments[1]);
+    }
+
+    private static string DomainMapItemLabel(string arrayName) =>
+        arrayName == "habilidades" ? "habilidad" : "tema";
 
     private static string ApplyGapsOrErrorsPatch(JsonObject root, MemoryPatch patch)
     {
@@ -306,6 +330,11 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
             var gapId = RequireString(gap, "id", "lagunas_o_errores active gap requires 'id'.");
             RequireString(gap, "concepto", "lagunas_o_errores active gap requires 'concepto'.");
             RequireString(gap, "descripcion", "lagunas_o_errores active gap requires 'descripcion'.");
+            if (!gap.ContainsKey("veces_visto"))
+            {
+                gap["veces_visto"] = 1;
+            }
+
             var activeGaps = GetRequiredArray(root, "activas", "lagunas_o_errores requires an 'activas' array.");
 
             if (FindByIdOrNull(activeGaps, gapId) is not null)
@@ -313,7 +342,25 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
                 return patch.Reason + " [no-op: elemento ya existía, no se duplicó]";
             }
 
-            activeGaps.Add(CloneValue(patch.Value));
+            if (root["resueltas"] is JsonArray resolvedGaps)
+            {
+                var resolvedIndex = FindIndexByIdOrNull(resolvedGaps, gapId);
+                if (resolvedIndex.HasValue)
+                {
+                    var index = resolvedIndex.Value;
+                    var revived = resolvedGaps[index]!.AsObject().DeepClone().AsObject();
+                    resolvedGaps.RemoveAt(index);
+                    gap.Remove("veces_visto");
+                    MergeObjectFields(revived, gap, overwriteId: false);
+                    revived["veces_visto"] = (TryGetInt(revived, "veces_visto") ?? 0) + 1;
+                    revived.Remove("fecha_resolucion");
+                    revived.Remove("como_se_resolvio");
+                    activeGaps.Add(revived);
+                    return patch.Reason + " [reactivacion: laguna resuelta reapareció, vuelta a activas con veces_visto incrementado]";
+                }
+            }
+
+            activeGaps.Add(gap);
             return patch.Reason;
         }
 
@@ -381,17 +428,6 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
         }
 
         return segments[0];
-    }
-
-    private static string TwoSegmentField(string path, string expectedRoot, string errorMessage)
-    {
-        var segments = PathSegments(path);
-        if (segments.Length != 2 || segments[0] != expectedRoot)
-        {
-            throw new InvalidMemoryPatchException(errorMessage);
-        }
-
-        return segments[1];
     }
 
     private static string[] PathSegments(string path) => path.Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -491,6 +527,19 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
         throw new InvalidMemoryPatchException($"TargetId '{targetId}' was not found in {label} array. {targetIdGuidance}");
     }
 
+    private static int? FindIndexByIdOrNull(JsonArray array, string targetId)
+    {
+        for (var index = 0; index < array.Count; index++)
+        {
+            if (array[index] is JsonObject itemObject && string.Equals(itemObject["id"]?.GetValue<string>(), targetId, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+
+        return null;
+    }
+
     private static JsonObject RequireObjectValue(JsonElement value, string errorMessage) =>
         CloneValue(value) as JsonObject ?? throw new InvalidMemoryPatchException(errorMessage);
 
@@ -521,6 +570,17 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
             && !string.IsNullOrWhiteSpace(stringValue))
         {
             return stringValue;
+        }
+
+        return null;
+    }
+
+    private static int? TryGetInt(JsonObject value, string propertyName)
+    {
+        if (value[propertyName] is JsonValue jsonValue
+            && jsonValue.TryGetValue<int>(out var intValue))
+        {
+            return intValue;
         }
 
         return null;

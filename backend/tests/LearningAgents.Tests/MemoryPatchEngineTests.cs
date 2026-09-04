@@ -281,6 +281,96 @@ public sealed class MemoryPatchEngineTests
         Assert.Contains("not a standard memory key", exception.Message);
     }
 
+    [Fact]
+    public async Task SessionMemory_SiguienteTema_IsAllowed()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        await fixture.Engine.ApplyPatchAsync(1, Patch("memoria_sesion", MemoryPatchOperation.Set, "/siguiente_tema", null, "\"tema-di\"", "Set next topic from test"), null);
+
+        var entry = await fixture.Db.MemoryEntries.SingleAsync(entry => entry.TutorId == 1 && entry.Key == "memoria_sesion");
+        Assert.Contains("tema-di", entry.ValueJson);
+    }
+
+    [Fact]
+    public async Task SessionMemory_NivelActual_IsRejected()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var exception = await Assert.ThrowsAsync<InvalidMemoryPatchException>(() =>
+            fixture.Engine.ApplyPatchAsync(1, Patch("memoria_sesion", MemoryPatchOperation.Set, "/nivel_actual", null, "\"Avanzado\""), null));
+
+        Assert.Contains("not a known memoria_sesion", exception.Message);
+    }
+
+    [Fact]
+    public async Task DomainMap_AddHabilidad_AppendsToHabilidades()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        await fixture.Engine.ApplyPatchAsync(1, Patch("mapa_dominio", MemoryPatchOperation.Add, "/habilidades", null, "{\"id\":\"habilidad-speaking\",\"nombre\":\"Speaking\",\"nivel\":\"B1\"}"), null);
+
+        var entry = await fixture.Db.MemoryEntries.SingleAsync(entry => entry.TutorId == 1 && entry.Key == "mapa_dominio");
+        var doc = System.Text.Json.Nodes.JsonNode.Parse(entry.ValueJson)!;
+        var habilidades = doc["habilidades"]!.AsArray();
+        var habilidad = Assert.Single(habilidades)!.AsObject();
+        Assert.Equal("habilidad-speaking", habilidad["id"]!.GetValue<string>());
+        Assert.Equal("B1", habilidad["nivel"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task DomainMap_UpdateHabilidad_UpdatesTargetField()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        await fixture.Engine.ApplyPatchAsync(1, Patch("mapa_dominio", MemoryPatchOperation.Add, "/habilidades", null, "{\"id\":\"habilidad-speaking\",\"nombre\":\"Speaking\",\"nivel\":\"A2\"}"), null);
+        await fixture.Engine.ApplyPatchAsync(1, Patch("mapa_dominio", MemoryPatchOperation.Update, "/habilidades/nivel", "habilidad-speaking", "\"B2\"", "Raise level from test"), null);
+
+        var entry = await fixture.Db.MemoryEntries.SingleAsync(entry => entry.TutorId == 1 && entry.Key == "mapa_dominio");
+        Assert.Contains("\"B2\"", entry.ValueJson);
+    }
+
+    [Fact]
+    public async Task DomainMap_AddOnInvalidPath_FailsClearly()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var exception = await Assert.ThrowsAsync<InvalidMemoryPatchException>(() =>
+            fixture.Engine.ApplyPatchAsync(1, Patch("mapa_dominio", MemoryPatchOperation.Add, "/dominios", null, "{\"id\":\"x\",\"nivel\":1}"), null));
+
+        Assert.Contains("only supports path", exception.Message);
+    }
+
+    [Fact]
+    public async Task Gaps_AddActive_DefaultsVecesVistoToOne()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        await fixture.Engine.ApplyPatchAsync(1, Patch("lagunas_o_errores", MemoryPatchOperation.Add, "/activas", null, "{\"id\":\"gap-1\",\"concepto\":\"Interfaces\",\"descripcion\":\"Confunde direccion\"}"), null);
+
+        var entry = await fixture.Db.MemoryEntries.SingleAsync(entry => entry.TutorId == 1 && entry.Key == "lagunas_o_errores");
+        var doc = System.Text.Json.Nodes.JsonNode.Parse(entry.ValueJson)!;
+        var gap = Assert.Single(doc["activas"]!.AsArray())!.AsObject();
+        Assert.Equal(1, gap["veces_visto"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Gaps_AddResolvedIdAgain_ReactivatesWithIncrementedVecesVisto()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        await fixture.Engine.ApplyPatchAsync(1, Patch("lagunas_o_errores", MemoryPatchOperation.Add, "/activas", null, "{\"id\":\"gap-1\",\"concepto\":\"Interfaces\",\"descripcion\":\"Confunde direccion\"}"), null);
+        await fixture.Engine.ApplyPatchAsync(1, Patch("lagunas_o_errores", MemoryPatchOperation.Resolve, "/activas", "gap-1", "{\"fecha_resolucion\":\"2026-06-25\",\"como_se_resolvio\":\"Practica guiada\"}", "Resolve from test"), null);
+        var result = await fixture.Engine.ApplyPatchAsync(1, Patch("lagunas_o_errores", MemoryPatchOperation.Add, "/activas", null, "{\"id\":\"gap-1\",\"concepto\":\"Interfaces\",\"descripcion\":\"Reaparecio\"}", "Reactivation from test"), null);
+
+        var entry = await fixture.Db.MemoryEntries.SingleAsync(entry => entry.TutorId == 1 && entry.Key == "lagunas_o_errores");
+        var doc = System.Text.Json.Nodes.JsonNode.Parse(entry.ValueJson)!;
+        Assert.Single(doc["activas"]!.AsArray());
+        Assert.Empty(doc["resueltas"]!.AsArray());
+
+        var gap = doc["activas"]![0]!.AsObject();
+        Assert.Equal("gap-1", gap["id"]!.GetValue<string>());
+        Assert.Equal(2, gap["veces_visto"]!.GetValue<int>());
+        Assert.Equal("Reaparecio", gap["descripcion"]!.GetValue<string>());
+        Assert.DoesNotContain("fecha_resolucion", gap);
+        Assert.DoesNotContain("como_se_resolvio", gap);
+
+        Assert.Contains("reactivacion", result.MemoryChange.Reason);
+    }
+
     private static MemoryPatch Patch(string key, MemoryPatchOperation operation, string path, string? targetId, string valueJson) =>
         Patch(key, operation, path, targetId, valueJson, "test reason");
 

@@ -122,7 +122,7 @@ public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbCon
                     Id = 3,
                     TutorId = 1,
                     Key = MemoryKeys.DomainMap,
-                    ValueJson = MemoryEntryDefaults.DomainMapJson,
+                    ValueJson = MemoryEntryDefaults.DomainMapJsonTemas,
                     SchemaVersion = 1,
                     CreatedAtUtc = seedCreatedAtUtc,
                     UpdatedAtUtc = seedCreatedAtUtc

@@ -29,7 +29,9 @@ entrevistas, proyectos)?
 ## Contenido específico por fase
 
 **Fase 1 — Diagnóstico**: 2-4 preguntas evaluando conceptos teóricos,
-análisis de un bloque de código, y razonamiento lógico.
+análisis de un bloque de código, y razonamiento lógico. Registra el
+diagnóstico en `perfil_estudiante.diagnostico_nivel` y los temas con su
+nivel inicial (escala 1-3) en `mapa_dominio` bajo el array `temas`.
 
 **Fase 2 — Enseñanza**: Capa 1 = analogía del mundo real. Capa 2 = ejemplo
 funcional en código. Capa 3 = edge cases y antipatrones. Muestra siempre
@@ -53,13 +55,19 @@ concepto con herramientas o paradigmas alternativos.
 
 **Fase 6 — Evaluación**: un problema práctico sin plantillas ni pistas, más
 un ejercicio de refactorización o debugging real. Antes de aprobar, fuerza
-comparaciones arquitectónicas y casos límite.
+comparaciones arquitectónicas y casos límite. Si aprueba, sube el nivel en
+`mapa_dominio` y refresca `diagnostico_nivel`; si falla, registra la brecha
+en `diagnostico_nivel.brechas` y promuévela a laguna en `lagunas_o_errores`
+si reaparece en ≥2 sesiones.
 
 ## Detección de lagunas ocultas
 
 Si el usuario domina la sintaxis pero no el mecanismo interno, regístralo
-como laguna oculta en `lagunas_o_errores` y reintroduce el punto más
-adelante disfrazado en un ejercicio distinto.
+como laguna oculta en `lagunas_o_errores` (con `veces_visto` reflejando las
+apariciones) y reintroduce el punto más adelante disfrazado en un ejercicio
+distinto. Si es la primera o segunda aparición, anótalo en
+`perfil_estudiante.diagnostico_nivel.brechas`; al confirmarse en ≥2
+sesiones, promuévelo a laguna.
 
 ## Comando de evaluación simulada
 

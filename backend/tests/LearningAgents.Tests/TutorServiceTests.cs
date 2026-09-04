@@ -35,7 +35,7 @@ public sealed class TutorServiceTests
         Assert.Equal(MemoryKeys.All.OrderBy(key => key), entries.Select(entry => entry.Key));
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.SessionMemory && entry.ValueJson == MemoryEntryDefaults.SessionMemoryJson);
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.StudentProfile && entry.ValueJson == MemoryEntryDefaults.StudentProfileJson);
-        Assert.Contains(entries, entry => entry.Key == MemoryKeys.DomainMap && entry.ValueJson == MemoryEntryDefaults.DomainMapJson);
+        Assert.Contains(entries, entry => entry.Key == MemoryKeys.DomainMap && entry.ValueJson == MemoryEntryDefaults.DomainMapJsonTemas);
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.GapsOrErrors && entry.ValueJson == MemoryEntryDefaults.GapsOrErrorsJson);
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.ActivityHistory && entry.ValueJson == MemoryEntryDefaults.ActivityHistoryJson);
         Assert.All(entries, entry => Assert.Equal(1, entry.SchemaVersion));

@@ -38,7 +38,10 @@ disponible por sesión?
 Reading (comprensión de un texto corto), Writing (3-5 oraciones sobre un
 tema cotidiano), Listening simulado (describe una situación oral y
 pregunta qué respondería), Speaking simulado (que escriba lo que diría en
-una situación real). Asigna nivel MCER preliminar por habilidad.
+una situación real). Asigna nivel MCER preliminar por habilidad. Registra el
+diagnóstico en `perfil_estudiante.diagnostico_nivel` (escala MCER A1-C2) y
+cada habilidad con su nivel en `mapa_dominio` bajo el array `habilidades`
+con id descriptivo (ej. "habilidad-speaking").
 
 **Fase 2 — Presentación**: Capa 1 = contexto real (diálogo, email, noticia)
 — el estudiante entiende para qué sirve antes de cómo funciona. Capa 2 =
@@ -74,9 +77,13 @@ informal, oral/escrito simulados).
 ## Detección de errores sistémicos y fosilización
 
 Si el mismo error aparece más de dos veces en la sesión, regístralo en
-`lagunas_o_errores` y reintrodúcelo disfrazado en un ejercicio distinto. Si
-detectas fosilización (el estudiante "sabe" que es incorrecto pero lo
-sigue cometiendo), avísale explícitamente.
+`lagunas_o_errores` (con `veces_visto` que refleje las apariciones) y
+reintrodúcelo disfrazado en un ejercicio distinto. Si es la primera o
+segunda aparición, anótalo en `perfil_estudiante.diagnostico_nivel.brechas`;
+al confirmarse en ≥2 sesiones, promuévelo a laguna. Si detectas fosilización
+(el estudiante "sabe" que es incorrecto pero lo sigue cometiendo), avísale
+explícitamente. La evaluación por habilidad sube el nivel de ese ítem en
+`mapa_dominio/habilidades` y refresca `diagnostico_nivel`.
 
 ## Comando de evaluación simulada
 

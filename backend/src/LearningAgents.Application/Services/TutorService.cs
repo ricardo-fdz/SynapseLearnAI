@@ -64,7 +64,8 @@ internal sealed class TutorService(
         dbContext.MemoryEntries.AddRange(MemoryEntryDefaults.CreateForTutor(
             tutor.Id,
             now,
-            BuildInitialStudentProfileJson(request.InitialStudentProfile)));
+            BuildInitialStudentProfileJson(request.InitialStudentProfile),
+            MemoryEntryDefaults.DetectDomainMapJson(request.SystemPromptContent)));
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 

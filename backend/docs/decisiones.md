@@ -23,6 +23,22 @@ documento de diseño original. Formato: fecha, decisión, razón.
 
 <!-- Agregar nuevas entradas debajo de esta línea -->
 
+### 2026-08-12 — Decisión de diseño: la meta de sesión (Goal) se mantiene informativa, no imperativa
+
+**Contexto:** Duda de diseño sobre si `StudySession.Goal` debe regir una sesión. Hoy el campo se persiste (DTO `CreateStudySessionRequest`, validado `[Required, StringLength(1000)]`) pero **no se inyecta en ningún prompt**: el grep de `Goal` en `PromptBuilder`/`ConversationService` no arroja uso, y el objetivo que el tutor conoce proviene de `perfil_estudiante.objetivo_declarado` (largo plazo, mutable por el propio agente). Riesgo percibido: volver la sesión rígida si el Goal se usara como mandato fijo e inmutable.
+
+**Decisión:** Se adopta el diseño de **Goal informativo, no imperativo**:
+- Si se llega a inyectar en el prompt en el futuro, será como una línea de contexto del tipo "Meta declarada de esta sesión: X. Es una guía, no un límite; priorízala pero no ignores desvíos que favorezcan el objetivo de largo plazo del perfil."
+- El Goal permanece **editable** a mitad de sesión (PUT existente: `UpdateStudySessionRequest` permite cambiarlo).
+- Queda **subordinado** al `objetivo_declarado` de `perfil_estudiante`: la brújula de largo plazo manda; la meta de sesión es el foco del día.
+- Está permitido que el propio tutor marque la meta como cumplida/pivotada en memoria, igual que ya hace con `perfil_estudiante`; no se trata como valor inmutable.
+
+**Razón:** La rigidez no es inherente al campo, sino a cuánto peso se le da en el prompt y a si es mutable. Con un Goal informativo + editable + subordinado al objetivo de largo plazo se gana enfoque por sesión sin sacrificar flexibilidad ni *over-tuning* del agente. No se implementa aún: es decisión de diseño con recomendación, pendiente de ejecución.
+
+**Sprint:** Post-MVP (validación de robustez de memoria).
+
+---
+
 ### 2026-07-02 — Soporte multi-provider mediante LLM profiles
 
 **Contexto:** `AGENTS.md` marcaba multiples proveedores LLM como fuera de alcance del MVP, pero Ricardo solicito explicitamente probar Groq y OpenRouter para comparar comportamiento entre modelos/agentes y facilitar que usuarios futuros del repositorio usen la API de pago o gratuita que prefieran.

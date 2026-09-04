@@ -19,6 +19,7 @@ internal sealed class ConversationService(
     IMemoryToolHandler memoryToolHandler) : IConversationService
 {
     private const int MaxToolIterations = 5;
+    private const int MaxHistoryMessages = 30;
 
     public async Task<ServiceResult<ConversationMessageResponse>> SendMessageAsync(
         int sessionId,
@@ -34,12 +35,25 @@ internal sealed class ConversationService(
             return ServiceResult<ConversationMessageResponse>.Failure("Not found");
         }
 
-        var previousMessages = await dbContext.Messages
+        var totalMessageCount = await dbContext.Messages
             .AsNoTracking()
             .Where(message => message.SessionId == sessionId)
-            .OrderBy(message => message.Id)
+            .CountAsync(cancellationToken);
+
+        var recentMessages = await dbContext.Messages
+            .AsNoTracking()
+            .Where(message => message.SessionId == sessionId)
+            .OrderByDescending(message => message.Id)
+            .Take(MaxHistoryMessages)
             .Select(message => new LLMMessage(message.Role.ToString().ToLowerInvariant(), message.Content))
             .ToListAsync(cancellationToken);
+        recentMessages.Reverse();
+        var previousMessages = recentMessages;
+
+        if (totalMessageCount > MaxHistoryMessages)
+        {
+            Console.WriteLine($"[H-013] Session {sessionId}: history truncated from {totalMessageCount} to {MaxHistoryMessages} messages for LLM context.");
+        }
 
         var userMessage = new Message
         {
@@ -56,6 +70,9 @@ internal sealed class ConversationService(
         workingMessages.Add(new LLMMessage("user", request.Content));
 
         var systemPrompt = await promptBuilder.BuildSystemPromptAsync(session.TutorId, request.Profile, cancellationToken);
+        var estimatedInputChars = systemPrompt.Length + previousMessages.Sum(m => m.Content?.Length ?? 0) + (request.Content?.Length ?? 0);
+        var estimatedTokens = estimatedInputChars / 4;
+        Console.WriteLine($"[H-013] Prompt metrics session {sessionId}: systemPrompt={systemPrompt.Length} chars, history={previousMessages.Count}/{totalMessageCount} msgs, totalInput~{estimatedInputChars} chars (~{estimatedTokens} tokens), profile={request.Profile}");
         LLMResponse? llmResponse = null;
         var toolAttempts = new List<string>();
         var readMemoryKeys = new HashSet<string>(StringComparer.Ordinal);

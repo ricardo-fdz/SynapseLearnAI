@@ -27,7 +27,9 @@ internal static class MemoryToolDeclarations
             """
             Aplica un MemoryPatch validado sobre la memoria persistente del tutor actual. Si apruebas formalmente al estudiante en un tema, usa guardar_memoria antes de la respuesta final para registrar el dominio en mapa_dominio. Antes de usar operation Update o Resolve sobre un array con elementos identificables (mapa_dominio, lagunas_o_errores), primero llama a leer_memoria con la key correspondiente para obtener el 'id' real de cada elemento; nunca uses el nombre, concepto o titulo visible como targetId.
 
-            Ejemplo correcto para mapa_dominio Add tras evaluacion aprobada:
+            mapa_dominio usa SIEMPRE UNO de los dos arrays: '/temas' para dominios técnicos o '/habilidades' para tutores de idiomas (speaking, listening, reading, writing). Usa el que defina el prompt de tu tutor; nunca mezcles ambos.
+
+            Ejemplo correcto para mapa_dominio Add tras evaluacion aprobada (tutor tecnico):
             {
               "patch": {
                 "key": "mapa_dominio",
@@ -44,6 +46,23 @@ internal static class MemoryToolDeclarations
               }
             }
 
+            Ejemplo correcto para mapa_dominio Add (tutor de idiomas, escala MCER):
+            {
+              "patch": {
+                "key": "mapa_dominio",
+                "operation": "Add",
+                "path": "/habilidades",
+                "value": {
+                  "id": "habilidad-speaking",
+                  "nombre": "Speaking",
+                  "nivel": "B1",
+                  "notas": "Fluidez suficiente en conversacion casual",
+                  "ultima_evaluacion": "2026-07-02"
+                },
+                "reason": "Evaluacion de habilidad completada"
+              }
+            }
+
             Ejemplo correcto para mapa_dominio Update:
             {
               "patch": {
@@ -55,7 +74,7 @@ internal static class MemoryToolDeclarations
                 "reason": "Demostró aplicación práctica sin ayuda en evaluación formal"
               }
             }
-            targetId es el campo 'id' del tema (obtenido via leer_memoria), NUNCA su 'nombre'. path siempre es '/temas/NOMBRE_DEL_CAMPO' apuntando a UN solo campo (nivel O notas, nunca ambos en la misma llamada); nunca el nombre del tema ni el array completo.
+            targetId es el campo 'id' del tema/habilidad (obtenido via leer_memoria), NUNCA su 'nombre'. path siempre es '/temas/NOMBRE_DEL_CAMPO' o '/habilidades/NOMBRE_DEL_CAMPO' apuntando a UN solo campo (nivel O notas, nunca ambos en la misma llamada); nunca el nombre del tema ni el array completo. Para idiomas, '/habilidades/NOMBRE_DEL_CAMPO' (ej. '/habilidades/nivel').
 
             Ejemplo correcto para guardar el alias del estudiante al inicio de la sesion:
             {
@@ -78,7 +97,7 @@ internal static class MemoryToolDeclarations
                 "reason": "Cierre de sesion con siguiente paso recomendado"
               }
             }
-            Campos validos de memoria_sesion: /fecha_ultima_sesion, /nivel_actual, /temas_dominados_ultima_sesion, /ultimo_ejercicio, /tiempo_invertido_minutos, /proximo_paso.
+            Campos validos de memoria_sesion: /fecha_ultima_sesion, /temas_dominados_ultima_sesion, /ultimo_ejercicio, /tiempo_invertido_minutos, /siguiente_tema, /proximo_paso. /siguiente_tema guarda el 'id' del proximo tema/habilidad del mapa_dominio a atacar; /proximo_paso guarda la accion concreta. No uses 'nivel_actual' en memoria_sesion: el nivel global vive en perfil_estudiante.diagnostico_nivel.
 
             Ejemplo correcto para guardar diagnostico inicial de nivel en perfil_estudiante.
             Usa una estructura propia del dominio del tutor; no uses campos de idiomas (reading, writing, listening, speaking) salvo que el tutor sea especificamente de idiomas:
@@ -121,6 +140,42 @@ internal static class MemoryToolDeclarations
               }
             }
             targetId es el campo 'id' de la laguna activa (obtenido via leer_memoria), NUNCA su 'concepto' o titulo visible.
+
+            Ejemplo correcto para registrar una nueva laguna activa. veces_visto inicia en 1 y lo incrementa el engine si una laguna resuelta reaparece (reactivacion):
+            {
+              "patch": {
+                "key": "lagunas_o_errores",
+                "operation": "Add",
+                "path": "/activas",
+                "value": {
+                  "id": "laguna-directores-interfaces-002",
+                  "concepto": "Direccion de interfaces",
+                  "descripcion": "Confunde donde deben vivir las interfaces de repositorio",
+                  "fecha_detectada": "2026-07-02"
+                },
+                "reason": "Error recurrente detectado durante la sesion"
+              }
+            }
+
+            Ejemplo correcto para historial_actividades Add (actividad/proyecto completado):
+            {
+              "patch": {
+                "key": "historial_actividades",
+                "operation": "Add",
+                "path": "/proyectos",
+                "value": {
+                  "id": "proyecto-api-inventario-001",
+                  "nombre": "API de Inventario",
+                  "fecha": "2026-07-02",
+                  "temas_integrados": ["Inyeccion de Dependencias", "EF Core"],
+                  "nivel_ayuda_requerido": "pistas_minimas",
+                  "problemas_encontrados": "Descargo toda la tabla a memoria antes de sumar",
+                  "resultado": "completado",
+                  "observaciones_tutor": "Demostro intuicion al deducir SumAsync()"
+                },
+                "reason": "Actividad completada en la sesion"
+              }
+            }
             """,
             Json("""
             {
@@ -139,13 +194,22 @@ internal static class MemoryToolDeclarations
                     },
                     "path": { "type": "string" },
                     "targetId": { "type": "string" },
-                    "value": { "type": "object" },
+                    "value": {
+                      "oneOf": [
+                        { "type": "string" },
+                        { "type": "number" },
+                        { "type": "boolean" },
+                        { "type": "array" },
+                        { "type": "object" }
+                      ],
+                      "description": "Valor del campo a fijar/agregar/actualizar. Puede ser un numero (ej. nivel 1-3), un string (ej. proximo_paso), una lista (ej. temas_dominados_ultima_sesion) o un objeto (ej. diagnostico_nivel, nueva laguna, nuevo tema/proyecto)."
+                    },
                     "reason": {
                       "type": "string",
                       "description": "Motivo obligatorio para la aplicacion. Si falta, guardar_memoria rechazara el patch y pedira corregirlo."
                     }
                   },
-                  "required": ["key", "operation", "path", "value"]
+                  "required": ["key", "operation", "path", "value", "reason"]
                 }
               },
               "required": ["patch"]
