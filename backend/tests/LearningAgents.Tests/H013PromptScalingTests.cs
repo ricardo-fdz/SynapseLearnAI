@@ -62,8 +62,8 @@ public sealed class H013PromptScalingTests
         Assert.True(result.IsSuccess);
         Assert.Single(captured);
         var sentMessages = captured[0].Messages;
-        // Should be capped to 30 history + 1 current user = 31, but workingMessages includes previous 30 + current
-        Assert.True(sentMessages.Count <= 31, $"Expected <=31 messages sent to LLM, got {sentMessages.Count}");
+        // Should be capped to 30 history + 1 resumen + 1 current user = 32
+        Assert.True(sentMessages.Count <= 32, $"Expected <=32 messages sent to LLM, got {sentMessages.Count}");
         // The oldest of the 40 should have been dropped
         Assert.DoesNotContain(sentMessages, m => m.Content == "msg 1");
         Assert.Contains(sentMessages, m => m.Content == "msg 40");

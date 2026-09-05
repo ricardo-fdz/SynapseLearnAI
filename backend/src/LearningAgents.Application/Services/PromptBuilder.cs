@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using LearningAgents.Application.Dtos.MemoryEntries;
@@ -13,6 +14,10 @@ internal sealed class PromptBuilder(
 {
     private const string GlobalPromptFileName = "PROMPT_GLOBAL.md";
     private const string GlobalPromptFallback = "Actúa como un tutor de programación útil y claro.";
+    private static readonly TimeSpan StaticPromptCacheTtl = TimeSpan.FromMinutes(30);
+    private static string? _cachedGlobalPrompt;
+    private static DateTime _globalPromptExpiry;
+    private static readonly ConcurrentDictionary<int, (string prompt, DateTime expiry, DateTime tutorUpdatedAt)> _tutorStaticCache = new();
 
     private static readonly string[] MemoryRenderOrder =
     [
@@ -45,11 +50,10 @@ internal sealed class PromptBuilder(
 
         var entriesByKey = entries.ToDictionary(entry => entry.Key, StringComparer.Ordinal);
         var builder = new StringBuilder();
-        builder.AppendLine(ReadGlobalPrompt().Trim());
+        var staticPrompt = GetOrCreateStaticPrompt(tutor);
+        builder.Append(staticPrompt);
         builder.AppendLine();
         builder.AppendLine($"Fecha actual (UTC): {DateTime.UtcNow:yyyy-MM-dd}. Usa esta fecha para cualquier campo de fecha que guardes en memoria durante este turno; no inventes fechas pasadas o futuras.");
-        builder.AppendLine();
-        builder.AppendLine(tutor.SystemPromptContent.Trim());
         if (!string.IsNullOrWhiteSpace(sessionGoal))
         {
             builder.AppendLine();
@@ -78,8 +82,29 @@ internal sealed class PromptBuilder(
 
     private static string ReadGlobalPrompt()
     {
+        if (_cachedGlobalPrompt != null && DateTime.UtcNow < _globalPromptExpiry)
+            return _cachedGlobalPrompt;
+
         var path = Path.Combine(AppContext.BaseDirectory, GlobalPromptFileName);
-        return File.Exists(path) ? File.ReadAllText(path) : GlobalPromptFallback;
+        var content = File.Exists(path) ? File.ReadAllText(path) : GlobalPromptFallback;
+        _cachedGlobalPrompt = content;
+        _globalPromptExpiry = DateTime.UtcNow.Add(StaticPromptCacheTtl);
+        return content;
+    }
+
+    private static string GetOrCreateStaticPrompt(LearningAgents.Application.Dtos.Tutors.TutorResponse tutor)
+    {
+        if (_tutorStaticCache.TryGetValue(tutor.Id, out var cached) && DateTime.UtcNow < cached.expiry && cached.tutorUpdatedAt == tutor.UpdatedAtUtc)
+            return cached.prompt;
+
+        var prompt = new StringBuilder()
+            .AppendLine(ReadGlobalPrompt().Trim())
+            .AppendLine()
+            .AppendLine(tutor.SystemPromptContent.Trim())
+            .ToString().TrimEnd() + Environment.NewLine;
+
+        _tutorStaticCache[tutor.Id] = (prompt, DateTime.UtcNow.Add(StaticPromptCacheTtl), tutor.UpdatedAtUtc);
+        return prompt;
     }
 
     private static IReadOnlyCollection<string> GetRequiredKeys(ContextLoadProfile profile) => profile switch

@@ -52,7 +52,11 @@ internal sealed class ConversationService(
 
         if (totalMessageCount > MaxHistoryMessages)
         {
-            Console.WriteLine($"[H-013] Session {sessionId}: history truncated from {totalMessageCount} to {MaxHistoryMessages} messages for LLM context.");
+            var omitted = totalMessageCount - MaxHistoryMessages;
+            var summary = new LLMMessage("system",
+                $"[Contexto resumido: {omitted} mensajes antiguos omitidos para optimizar. Mostrando los {MaxHistoryMessages} más recientes. Si necesitas detalle histórico, consulta la auditoría.]");
+            previousMessages = new[] { summary }.Concat(previousMessages).ToList();
+            Console.WriteLine($"[H-013] Session {sessionId}: history truncated from {totalMessageCount} to {MaxHistoryMessages} (+1 resumen) for LLM context.");
         }
 
         var userMessage = new Message
