@@ -69,7 +69,7 @@ internal sealed class ConversationService(
         var workingMessages = previousMessages.ToList();
         workingMessages.Add(new LLMMessage("user", request.Content));
 
-        var systemPrompt = await promptBuilder.BuildSystemPromptAsync(session.TutorId, request.Profile, cancellationToken);
+        var systemPrompt = await promptBuilder.BuildSystemPromptAsync(session.TutorId, request.Profile, session.Goal, cancellationToken);
         var estimatedInputChars = systemPrompt.Length + previousMessages.Sum(m => m.Content?.Length ?? 0) + (request.Content?.Length ?? 0);
         var estimatedTokens = estimatedInputChars / 4;
         Console.WriteLine($"[H-013] Prompt metrics session {sessionId}: systemPrompt={systemPrompt.Length} chars, history={previousMessages.Count}/{totalMessageCount} msgs, totalInput~{estimatedInputChars} chars (~{estimatedTokens} tokens), profile={request.Profile}");

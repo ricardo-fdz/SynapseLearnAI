@@ -23,9 +23,16 @@ internal sealed class PromptBuilder(
         MemoryKeys.ActivityHistory
     ];
 
+    public Task<string> BuildSystemPromptAsync(
+        int tutorId,
+        ContextLoadProfile profile,
+        CancellationToken cancellationToken = default) =>
+        BuildSystemPromptAsync(tutorId, profile, sessionGoal: null, cancellationToken);
+
     public async Task<string> BuildSystemPromptAsync(
         int tutorId,
         ContextLoadProfile profile,
+        string? sessionGoal,
         CancellationToken cancellationToken = default)
     {
         var tutor = await tutorService.GetByIdAsync(tutorId, cancellationToken)
@@ -43,6 +50,11 @@ internal sealed class PromptBuilder(
         builder.AppendLine($"Fecha actual (UTC): {DateTime.UtcNow:yyyy-MM-dd}. Usa esta fecha para cualquier campo de fecha que guardes en memoria durante este turno; no inventes fechas pasadas o futuras.");
         builder.AppendLine();
         builder.AppendLine(tutor.SystemPromptContent.Trim());
+        if (!string.IsNullOrWhiteSpace(sessionGoal))
+        {
+            builder.AppendLine();
+            builder.AppendLine($"Meta declarada de esta sesión: \"{sessionGoal.Trim()}\". Es una guía, no un límite; priorízala pero no ignores desvíos que favorezcan el objetivo de largo plazo del perfil (perfil_estudiante.objetivo_declarado).");
+        }
 
         foreach (var key in MemoryRenderOrder.Where(requiredKeys.Contains))
         {

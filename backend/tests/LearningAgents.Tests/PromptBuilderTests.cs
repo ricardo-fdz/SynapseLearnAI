@@ -105,6 +105,18 @@ public sealed class PromptBuilderTests
         Assert.DoesNotContain("Sin estado de sesion registrado.", prompt);
     }
 
+    [Fact]
+    public async Task BuildSystemPrompt_WithGoal_InjectsMetaDeclarada()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var promptWithout = await fixture.Builder.BuildSystemPromptAsync(1, ContextLoadProfile.Standard, (string?)null);
+        var promptWith = await fixture.Builder.BuildSystemPromptAsync(1, ContextLoadProfile.Standard, "Repaso de closures para backend");
+
+        Assert.DoesNotContain("Meta declarada", promptWithout);
+        Assert.Contains("Meta declarada de esta sesión: \"Repaso de closures para backend\"", promptWith);
+        Assert.Contains("Es una guía, no un límite", promptWith);
+    }
+
     private static MemoryPatch Patch(string key, MemoryPatchOperation operation, string path, string valueJson) =>
         new(key, operation, path, null, JsonSerializer.Deserialize<JsonElement>(valueJson), "test reason");
 
