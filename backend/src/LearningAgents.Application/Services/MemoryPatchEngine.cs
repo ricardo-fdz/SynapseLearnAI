@@ -85,8 +85,17 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
         };
 
         dbContext.MemoryChanges.Add(change);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidMemoryPatchException(
+                "Conflicto de concurrencia: otro turno modificó la misma memoria simultáneamente. Vuelve a llamar leer_memoria para obtener la versión más reciente y reintenta tu guardar_memoria en el siguiente turno.");
+        }
 
         return new MemoryPatchResult(ToMemoryEntryResponse(entry), ToMemoryChangeResponse(change));
     }

@@ -2,21 +2,7 @@
 
 > Single source del backlog. Resueltos movidos a `archive/hallazgos-resueltos.md`. Ver `README.md` para índice.
 
-## H-002 — Sin control de concurrencia en memoria
-
-**Estado:** Documentado | **Esfuerzo:** Alto | **Prioridad:** Media | **Fecha:** 2026-08-12
-
-Memoria a nivel **Tutor** compartida entre sesiones. Sin `RowVersion`/`SemaphoreSlim`. Escenario: dos sesiones del mismo tutor leen `mapa_dominio` y hacen `Add` concurrentes → last-write-wins no determinista. `ConversationService.cs` guard anti-falso-éxito protege `targetId` intra-turno, no atomicidad inter-turno.
-
-Opciones: `RowVersion` + `DbUpdateConcurrencyException`, `SemaphoreSlim` por `TutorId`, re-leer `UpdatedAtUtc` antes de patch, o documentar last-write-wins para MVP (actual).
-
-## H-011 — `siguiente_tema` vs `proximo_paso` (campo diferente)
-
-**Estado:** Documentado | **Esfuerzo:** Bajo | **Prioridad:** Baja | **Fecha:** 2026-08-25
-
-Tutor escribió `proximo_paso` en vez de `siguiente_tema`. Ambos válidos en `MemoryToolDeclarations.cs`, pero `PromptBuilder.cs:152` solo renderiza `siguiente_tema` en prompt. Si solo escribe `proximo_paso`, no se reinyecta.
-
-Opciones: renderizar ambos en `PromptBuilder`, o consolidar a un campo.
+> **2026-09-05:** H-002 resuelto con `RowVersion` (`MemoryEntry.cs:12` + `LearningAgentsDbContext.cs:84` + `MemoryPatchEngine.cs:87` catch `DbUpdateConcurrencyException`), H-011 verificado como ya resuelto (`PromptBuilder.cs:152` renderiza ambos campos). Backlog activo ahora solo D-001 y H-012.
 
 ## H-012 — Gemini HTTP 400 intermitente en mensajes largos
 

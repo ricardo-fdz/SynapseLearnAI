@@ -582,53 +582,7 @@ respectiva) — este fix solo cierra el hueco para tutores creados
 posteriormente sin corrección manual explícita.
 
 **Sprint:** post-MVP
----
- 
-### 2026-06-25 — Provisioning automático de MemoryEntry al crear un Tutor
- 
-**Contexto:** Al probar un tutor nuevo creado manualmente (tutor 5,
-Escritura creativa) en una conversación real, se descubrió que solo el
-tutor del seed (Id=1) recibe sus 5 MemoryEntry automáticamente (vía
-HasData en la migración) — cualquier tutor creado después vía
-POST /api/tutors nace sin ninguna MemoryEntry. El sistema manejó esto sin
-romperse (leer_memoria devolvió un error claro como tool result, no un
-500, y el tutor reaccionó correctamente haciendo preguntas de diagnóstico
-inicial, como dicta PROMPT_GLOBAL.md para perfil vacío) — pero se decidió
-no depender de ese comportamiento orgánico como solución permanente.
- 
-**Decisión:** TutorService.CreateAsync ahora provisiona automáticamente
-las 5 MemoryEntry estándar (con la estructura vacía correcta, centralizada
-en un nuevo MemoryEntryDefaults compartido también por el seed) en la
-MISMA transacción que crea el Tutor — si falla la creación de alguna
-MemoryEntry, se revierte también la creación del Tutor.
- 
-**Razón:** Garantiza que TODO tutor, sin importar cómo se creó, tenga
-siempre sus 5 MemoryEntry desde el primer momento — invariante más simple
-de razonar que "puede o no tenerlas según el método de creación", y evita
-depender de que el modelo decida correctamente hacer un Add la primera vez
-que algo falle.
- 
-**Corrección de dato existente:** se crearon manualmente las 5 MemoryEntry
-para el tutor 5 (que ya existía antes de este fix), confirmando la
-estructura correcta en cada una.
- 
-**Verificación:** 17/17 tests pasando (incluye nuevo test
-CreateAsync_ProvisionsStandardMemoryEntries). Confirmado con un tutor
-nuevo real (Id=6) que sus 5 MemoryEntry existen inmediatamente tras la
-creación, sin necesitar ninguna conversación. Repetida la conversación de
-prueba con el tutor 5: ya no aparece el error de memoria inexistente: el
-tutor ahora carga perfil_estudiante={} directamente desde el prompt
-inicial (vía IPromptBuilder) sin necesitar llamar leer_memoria para
-detectar su ausencia.
- 
-**Nota relacionada con decisión previa:** el tutor 1 (seed) y el tutor 3
-(prompt real de programación, creado manualmente antes de este fix) ya
-tenían sus MemoryEntry por otras vías (seed automático y corrección manual
-respectiva) — este fix solo cierra el hueco para tutores creados
-posteriormente sin corrección manual explícita.
- 
-**Sprint:** post-MVP
- 
+
 ---
 
 ### 2026-07-03 — Implementación del router multi-proveedor LLM

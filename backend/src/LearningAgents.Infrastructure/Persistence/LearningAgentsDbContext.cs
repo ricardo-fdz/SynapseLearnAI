@@ -85,6 +85,7 @@ public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbCon
             entity.Property(memoryEntry => memoryEntry.SchemaVersion).IsRequired();
             entity.Property(memoryEntry => memoryEntry.CreatedAtUtc).IsRequired();
             entity.Property(memoryEntry => memoryEntry.UpdatedAtUtc).IsRequired();
+            entity.Property(memoryEntry => memoryEntry.RowVersion).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();
 
             entity.HasOne(memoryEntry => memoryEntry.Tutor)
                 .WithMany(tutor => tutor.MemoryEntries)
