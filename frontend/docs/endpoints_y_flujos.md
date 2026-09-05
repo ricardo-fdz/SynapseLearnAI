@@ -1,8 +1,10 @@
-# Endpoints y Flujos
+# Movido → /docs/endpoints.md
 
-Documento de referencia rapida para la API actual.
+Este archivo se mantiene por compatibilidad. **Single source ahora en `/docs/endpoints.md`** (21 rutas auditadas).
 
-## 1. Resumen
+> Ver `/docs/README.md` y `backend/docs/AGENTS.md:9` para integración.
+
+## 1. Resumen (redirect)
 
 La API expone CRUD de tutores, sesiones, mensajes y memorias, mas endpoints de diagnostico y auditoria para los sprints recientes. La conversacion con tutores pasa por Gemini, puede ejecutar tools de memoria y conserva el hilo por `StudySession` usando los `Message` persistidos en SQLite.
 

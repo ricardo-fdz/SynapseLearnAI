@@ -19,7 +19,7 @@ Angular 21 (frontend :4200) → .NET 10 API (:5017) → SQLite
 - **Tool Calls del agente:** `leer_memoria`, `guardar_memoria`, `listar_memoria` — el tutor actualiza su memoria autónomamente
 - **Context Profiles** `PromptBuilder.cs:73`: `Standard` (perfil+sesión+mapa+lagunas), `Evaluation`, `Project`, `FullReview`
 
-Docs técnicos: `backend/docs/AGENTS.md`, `backend/docs/Esquemas memoria.md`, `backend/docs/decisiones.md`
+Docs técnicos: `docs/arquitectura.md`, `docs/esquemas-memoria.md`, `docs/endpoints.md`, `docs/backlog.md` · Specs agente: `backend/docs/AGENTS.md`, `frontend/docs/AGENTS.md`
 
 ## Requisitos
 
@@ -27,22 +27,25 @@ Docs técnicos: `backend/docs/AGENTS.md`, `backend/docs/Esquemas memoria.md`, `b
 - .NET SDK 10
 - Clave Gemini (o Groq/OpenRouter) — vía User Secrets (no en `appsettings.json`)
 
-## Desarrollo local
+## Desarrollo local — inicio en 1 comando
 
 ```bash
-# 1. Clonar y configurar LLM
-cd backend
-dotnet user-secrets set "Gemini:ApiKey" "tu-key" --project src/LearningAgents.Api
-# opcional: dotnet user-secrets set "Groq:ApiKey" "..." --project src/LearningAgents.Api
+# 1. Clonar y configurar LLM (una vez)
+dotnet user-secrets set "Gemini:ApiKey" "tu-key" --project backend/src/LearningAgents.Api
+npm install          # instala concurrently (root) + deps frontend vía install:all
+npm run install:all  # alternativa: dotnet restore + npm ci
 
-# 2. API (http://localhost:5017, Swagger en /swagger)
-dotnet run --project src/LearningAgents.Api
-# o: dotnet build LearningAgents.slnx && dotnet src/LearningAgents.Api/bin/Release/net10.0/LearningAgents.Api.dll
+# 2. Iniciar todo (API :5017 + Web :4200) — elige una:
+npm run dev          # concurrently con logs coloreados (recomendado)
+./dev.sh             # bash sin dependencias extra
+make dev             # alias a npm run dev
+make dev-sh          # alias a ./dev.sh
+```
 
-# 3. Frontend (http://localhost:4200)
-cd ../frontend
-npm ci
-npm start
+Detalles por servicio (si prefieres manual):
+```bash
+dotnet run --project backend/src/LearningAgents.Api  # Swagger en /swagger
+npm start --prefix frontend                            # http://localhost:4200
 ```
 
 ## Verificación
@@ -70,7 +73,7 @@ curl -X POST http://localhost:5017/api/sessions/1/messages -H "Content-Type: app
 
 Resueltos y validados E2E: `H-001/003` Tracker persistencia, `H-006/007` semilla `habilidades` vs `temas`, `H-008/009/010` calidad pedagógica (tema puente, verificación, diagnóstico), `H-013` escalado prompt (cap 30 msgs + memoria truncada).
 
-Pendiente post-MVP: `H-002` concurrencia sin `RowVersion` (last-write-wins, improbable single-user), `H-011` `siguiente_tema` vs `proximo_paso` cosmético. Ver `backend/docs/hallazgos-hardening.md:335`.
+Pendiente post-MVP: `H-002` concurrencia sin `RowVersion` (last-write-wins, improbable single-user), `H-011` `siguiente_tema` vs `proximo_paso` cosmético. Ver `docs/backlog.md`.
 
 ## Seguridad
 

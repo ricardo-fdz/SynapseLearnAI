@@ -1,0 +1,24 @@
+{
+  "name": "synapse-learn-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mono-repo dev orchestrator — inicia backend (.NET) y frontend (Angular) con un comando",
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "dotnet run --project backend/src/LearningAgents.Api",
+    "dev:frontend": "npm start --prefix frontend",
+    "dev:sh": "./dev.sh",
+    "build": "dotnet build backend/LearningAgents.slnx -c Release && npm run build --prefix frontend",
+    "test": "dotnet test backend && npm test --prefix frontend -- --run",
+    "test:backend": "dotnet test backend",
+    "install:all": "dotnet restore backend/LearningAgents.slnx && npm ci --prefix frontend && npm install --package-lock-only"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  }
+}
