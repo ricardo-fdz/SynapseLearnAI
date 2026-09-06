@@ -3,6 +3,7 @@ using System;
 using LearningAgents.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LearningAgents.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LearningAgentsDbContext))]
-    partial class LearningAgentsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260906004158_DropCheckConstraint")]
+    partial class DropCheckConstraint
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -158,16 +161,6 @@ namespace LearningAgents.Infrastructure.Persistence.Migrations
                             TutorId = 1,
                             UpdatedAtUtc = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Utc),
                             ValueJson = "{\"proyectos\":[]}"
-                        },
-                        new
-                        {
-                            Id = 100,
-                            CreatedAtUtc = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Key = "roadmap",
-                            SchemaVersion = 1,
-                            TutorId = 1,
-                            UpdatedAtUtc = new DateTime(2026, 6, 24, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ValueJson = "{\"roadmaps\":[]}"
                         });
                 });
 

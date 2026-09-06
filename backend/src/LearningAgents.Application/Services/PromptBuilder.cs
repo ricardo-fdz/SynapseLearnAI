@@ -25,7 +25,8 @@ internal sealed class PromptBuilder(
         MemoryKeys.SessionMemory,
         MemoryKeys.DomainMap,
         MemoryKeys.GapsOrErrors,
-        MemoryKeys.ActivityHistory
+        MemoryKeys.ActivityHistory,
+        MemoryKeys.Roadmap
     ];
 
     public Task<string> BuildSystemPromptAsync(
@@ -115,7 +116,8 @@ internal sealed class PromptBuilder(
             MemoryKeys.StudentProfile,
             MemoryKeys.SessionMemory,
             MemoryKeys.DomainMap,
-            MemoryKeys.GapsOrErrors
+            MemoryKeys.GapsOrErrors,
+            MemoryKeys.Roadmap
         ],
         ContextLoadProfile.Evaluation =>
         [
@@ -127,7 +129,8 @@ internal sealed class PromptBuilder(
         [
             MemoryKeys.StudentProfile,
             MemoryKeys.DomainMap,
-            MemoryKeys.ActivityHistory
+            MemoryKeys.ActivityHistory,
+            MemoryKeys.Roadmap
         ],
         ContextLoadProfile.FullReview =>
         [
@@ -135,7 +138,8 @@ internal sealed class PromptBuilder(
             MemoryKeys.SessionMemory,
             MemoryKeys.DomainMap,
             MemoryKeys.GapsOrErrors,
-            MemoryKeys.ActivityHistory
+            MemoryKeys.ActivityHistory,
+            MemoryKeys.Roadmap
         ],
         _ => throw new ArgumentOutOfRangeException(nameof(profile), profile, null)
     };
@@ -152,6 +156,7 @@ internal sealed class PromptBuilder(
             MemoryKeys.DomainMap => RenderDomainMap(root),
             MemoryKeys.GapsOrErrors => RenderGapsOrErrors(root, includeResolved: profile == ContextLoadProfile.FullReview),
             MemoryKeys.ActivityHistory => RenderActivityHistory(root),
+            MemoryKeys.Roadmap => RenderRoadmap(root),
             _ => string.Empty
         };
     }
@@ -311,6 +316,46 @@ internal sealed class PromptBuilder(
         if (!wrote)
         {
             builder.AppendLine("Sin actividades registradas.");
+        }
+
+        return builder.ToString();
+    }
+
+    private static string RenderRoadmap(JsonElement root)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("## Memoria: roadmap");
+        builder.AppendLine("_Roadmap sugerido — es guía, no límite. Priorízalo pero permite desvíos si el perfil o lagunas lo justifican._");
+
+        if (!TryGetArray(root, "roadmaps", out var roadmaps))
+        {
+            builder.AppendLine("Sin roadmap definido.");
+            return builder.ToString();
+        }
+
+        var items = roadmaps.EnumerateArray().ToArray();
+        if (items.Length == 0)
+        {
+            builder.AppendLine("Sin roadmap definido.");
+            return builder.ToString();
+        }
+
+        foreach (var roadmap in items)
+        {
+            var titulo = GetString(roadmap, "titulo") ?? GetString(roadmap, "nombre") ?? "Roadmap sin título";
+            var obligatorio = roadmap.TryGetProperty("obligatorio", out var obl) && obl.ValueKind == JsonValueKind.True ? " (obligatorio)" : " (opcional)";
+            builder.AppendLine($"- **{Truncate(titulo, MaxFieldChars)}**{obligatorio}");
+            AppendNestedValue(builder, roadmap, "origen", "Origen");
+            if (TryGetArray(roadmap, "temas", out var temas))
+            {
+                foreach (var tema in temas.EnumerateArray())
+                {
+                    var refId = GetString(tema, "ref") ?? GetString(tema, "id") ?? "sin-ref";
+                    var orden = tema.TryGetProperty("orden", out var o) ? o.GetRawText() : "?";
+                    var saltable = tema.TryGetProperty("saltable", out var s) && s.ValueKind == JsonValueKind.True ? "saltable" : "requerido";
+                    builder.AppendLine($"  - {orden}. {Truncate(refId, MaxFieldChars)} ({saltable})");
+                }
+            }
         }
 
         return builder.ToString();

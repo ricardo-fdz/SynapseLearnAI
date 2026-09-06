@@ -58,8 +58,29 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
         ValidateCommonPatch(patch);
 
         var entry = await dbContext.MemoryEntries
-            .FirstOrDefaultAsync(memoryEntry => memoryEntry.TutorId == tutorId && memoryEntry.Key == patch.Key, cancellationToken)
-            ?? throw new InvalidMemoryPatchException($"MemoryEntry '{patch.Key}' does not exist for tutor {tutorId}.");
+            .FirstOrDefaultAsync(memoryEntry => memoryEntry.TutorId == tutorId && memoryEntry.Key == patch.Key, cancellationToken);
+
+        if (entry is null)
+        {
+            if (patch.Key == MemoryKeys.Roadmap)
+            {
+                entry = new MemoryEntry
+                {
+                    TutorId = tutorId,
+                    Key = MemoryKeys.Roadmap,
+                    ValueJson = MemoryEntryDefaults.RoadmapJson,
+                    SchemaVersion = 1,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    UpdatedAtUtc = DateTime.UtcNow
+                };
+                dbContext.MemoryEntries.Add(entry);
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            else
+            {
+                throw new InvalidMemoryPatchException($"MemoryEntry '{patch.Key}' does not exist for tutor {tutorId}.");
+            }
+        }
 
         var previousValueJson = entry.ValueJson;
         var root = ParseObject(previousValueJson, patch.Key);
@@ -155,6 +176,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
             MemoryKeys.DomainMap => ApplyDomainMapPatch(root, patch),
             MemoryKeys.GapsOrErrors => ApplyGapsOrErrorsPatch(root, patch),
             MemoryKeys.ActivityHistory => ApplyActivityHistoryPatch(root, patch),
+            MemoryKeys.Roadmap => ApplyRoadmapPatch(root, patch),
             _ => throw new InvalidMemoryPatchException($"Memory key '{patch.Key}' is not supported.")
         };
     }
@@ -426,6 +448,59 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
 
         projects.Add(CloneValue(patch.Value));
         return patch.Reason;
+    }
+
+    private static string ApplyRoadmapPatch(JsonObject root, MemoryPatch patch)
+    {
+        if (patch.Operation == MemoryPatchOperation.Add)
+        {
+            if (patch.Path != "/roadmaps")
+            {
+                throw new InvalidMemoryPatchException("roadmap Add only supports path '/roadmaps'.");
+            }
+
+            var roadmap = RequireObjectValue(patch.Value, "roadmap Add requires an object value.");
+            var roadmapId = RequireString(roadmap, "id", "roadmap requires 'id'.");
+            RequireString(roadmap, "titulo", "roadmap requires 'titulo'.");
+            var roadmaps = GetRequiredArray(root, "roadmaps", "roadmap requires a 'roadmaps' array.");
+
+            if (FindByIdOrNull(roadmaps, roadmapId) is not null)
+            {
+                return patch.Reason + " [no-op: roadmap ya existía]";
+            }
+
+            roadmaps.Add(CloneValue(patch.Value));
+            return patch.Reason;
+        }
+
+        if (patch.Operation == MemoryPatchOperation.Update)
+        {
+            var segments = PathSegments(patch.Path);
+            if (segments.Length != 2 || segments[0] != "roadmaps")
+            {
+                throw new InvalidMemoryPatchException("roadmap Update only supports path '/roadmaps/{field}' (ej. '/roadmaps/titulo').");
+            }
+
+            var roadmaps = GetRequiredArray(root, "roadmaps", "roadmap requires a 'roadmaps' array.");
+            var roadmap = FindById(roadmaps, patch.TargetId!, "roadmap",
+                "targetId debe ser el campo 'id' de un roadmap existente. Usa leer_memoria con key='roadmap' para obtener ids.");
+            roadmap[segments[1]] = CloneValue(patch.Value);
+            return patch.Reason;
+        }
+
+        if (patch.Operation == MemoryPatchOperation.Set)
+        {
+            var field = SingleSegment(patch.Path, "roadmap Set only supports root fields like '/roadmaps'.");
+            if (field != "roadmaps")
+            {
+                throw new InvalidMemoryPatchException("roadmap Set only supports path '/roadmaps'.");
+            }
+
+            root[field] = CloneValue(patch.Value);
+            return patch.Reason;
+        }
+
+        throw new InvalidMemoryPatchException("roadmap only supports Add, Update and Set operations.");
     }
 
     private static string SingleSegment(string path, string errorMessage)

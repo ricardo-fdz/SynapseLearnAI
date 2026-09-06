@@ -7,6 +7,7 @@ public static class MemoryKeys
     public const string DomainMap = "mapa_dominio";
     public const string GapsOrErrors = "lagunas_o_errores";
     public const string ActivityHistory = "historial_actividades";
+    public const string Roadmap = "roadmap";
 
     public static readonly string[] All =
     [
@@ -14,7 +15,8 @@ public static class MemoryKeys
         StudentProfile,
         DomainMap,
         GapsOrErrors,
-        ActivityHistory
+        ActivityHistory,
+        Roadmap
     ];
 
     public static bool IsStandard(string key) => All.Contains(key);

@@ -10,6 +10,7 @@ public static class MemoryEntryDefaults
     public const string DomainMapJsonHabilidades = "{\"habilidades\":[]}";
     public const string GapsOrErrorsJson = "{\"activas\":[],\"resueltas\":[]}";
     public const string ActivityHistoryJson = "{\"proyectos\":[]}";
+    public const string RoadmapJson = "{\"roadmaps\":[]}";
 
     public static IReadOnlyList<MemoryEntry> CreateForTutor(
         int tutorId,
@@ -21,7 +22,8 @@ public static class MemoryEntryDefaults
         Create(tutorId, MemoryKeys.StudentProfile, string.IsNullOrWhiteSpace(studentProfileJson) ? StudentProfileJson : studentProfileJson, now),
         Create(tutorId, MemoryKeys.DomainMap, domainMapJson ?? DomainMapJsonTemas, now),
         Create(tutorId, MemoryKeys.GapsOrErrors, GapsOrErrorsJson, now),
-        Create(tutorId, MemoryKeys.ActivityHistory, ActivityHistoryJson, now)
+        Create(tutorId, MemoryKeys.ActivityHistory, ActivityHistoryJson, now),
+        Create(tutorId, MemoryKeys.Roadmap, RoadmapJson, now)
     ];
 
     public static string DetectDomainMapJson(string? systemPromptContent)

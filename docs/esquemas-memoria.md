@@ -359,6 +359,30 @@ se duplica el registro completo en ambas claves.
 
 ---
 
+## 6. `roadmap` (nuevo, Tutor-level, opcional)
+
+Roadmap sugerido — es guía, no límite. Array `roadmaps` con cada roadmap opcional/saltable.
+
+```json
+{
+  "roadmaps": [
+    {
+      "id": "js-mid-v1",
+      "titulo": "JS Mid: Closures -> Event Loop",
+      "obligatorio": false,
+      "temas": [
+        {"ref": "tema-js-closures", "orden": 1, "saltable": false},
+        {"ref": "tema-event-loop", "orden": 2, "saltable": true}
+      ]
+    }
+  ]
+}
+```
+
+**Paths:** `Add /roadmaps`, `Update /roadmaps/titulo`, `Set /roadmaps`. `PromptBuilder` lo renderiza como guía en `Standard/Project/FullReview` con `_Roadmap sugerido — es guía, no límite._`
+
+---
+
 ## Reglas transversales v2
 
 Estas reglas aplican a todas las claves y alinean engine, tools y prompts.

@@ -31,13 +31,14 @@ public sealed class TutorServiceTests
             .OrderBy(entry => entry.Key)
             .ToListAsync();
 
-        Assert.Equal(5, entries.Count);
+        Assert.Equal(6, entries.Count);
         Assert.Equal(MemoryKeys.All.OrderBy(key => key), entries.Select(entry => entry.Key));
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.SessionMemory && entry.ValueJson == MemoryEntryDefaults.SessionMemoryJson);
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.StudentProfile && entry.ValueJson == MemoryEntryDefaults.StudentProfileJson);
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.DomainMap && entry.ValueJson == MemoryEntryDefaults.DomainMapJsonTemas);
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.GapsOrErrors && entry.ValueJson == MemoryEntryDefaults.GapsOrErrorsJson);
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.ActivityHistory && entry.ValueJson == MemoryEntryDefaults.ActivityHistoryJson);
+        Assert.Contains(entries, entry => entry.Key == MemoryKeys.Roadmap && entry.ValueJson == MemoryEntryDefaults.RoadmapJson);
         Assert.All(entries, entry => Assert.Equal(1, entry.SchemaVersion));
         Assert.Equal("gemini-test-default", tutor.GeminiModel);
     }

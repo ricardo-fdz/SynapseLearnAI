@@ -93,9 +93,6 @@ public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbCon
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(memoryEntry => new { memoryEntry.TutorId, memoryEntry.Key }).IsUnique();
-            entity.ToTable(table => table.HasCheckConstraint(
-                "CK_MemoryEntries_Key",
-                $"Key IN ('{MemoryKeys.SessionMemory}', '{MemoryKeys.StudentProfile}', '{MemoryKeys.DomainMap}', '{MemoryKeys.GapsOrErrors}', '{MemoryKeys.ActivityHistory}')"));
 
             entity.HasData(
                 new MemoryEntry
@@ -144,6 +141,16 @@ public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbCon
                     TutorId = 1,
                     Key = MemoryKeys.ActivityHistory,
                     ValueJson = MemoryEntryDefaults.ActivityHistoryJson,
+                    SchemaVersion = 1,
+                    CreatedAtUtc = seedCreatedAtUtc,
+                    UpdatedAtUtc = seedCreatedAtUtc
+                },
+                new MemoryEntry
+                {
+                    Id = 100,
+                    TutorId = 1,
+                    Key = MemoryKeys.Roadmap,
+                    ValueJson = MemoryEntryDefaults.RoadmapJson,
                     SchemaVersion = 1,
                     CreatedAtUtc = seedCreatedAtUtc,
                     UpdatedAtUtc = seedCreatedAtUtc

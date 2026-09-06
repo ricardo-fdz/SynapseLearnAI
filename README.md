@@ -15,7 +15,7 @@ Angular 21 (frontend :4200) → .NET 10 API (:5017) → SQLite
                                └── MemoryChange audit
 ```
 
-- **5 claves de memoria por tutor** (`AGENTS.md:6`): `perfil_estudiante`, `memoria_sesion`, `mapa_dominio` (`temas`|`habilidades`), `lagunas_o_errores`, `historial_actividades`
+- **6 claves de memoria por tutor** (`esquemas-memoria.md`): `perfil_estudiante`, `memoria_sesion`, `mapa_dominio` (`temas`|`habilidades`), `lagunas_o_errores`, `historial_actividades`, `roadmap` (opcional, guía)
 - **Tool Calls del agente:** `leer_memoria`, `guardar_memoria`, `listar_memoria` — el tutor actualiza su memoria autónomamente
 - **Context Profiles** `PromptBuilder.cs:73`: `Standard` (perfil+sesión+mapa+lagunas), `Evaluation`, `Project`, `FullReview`
 
