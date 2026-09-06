@@ -16,7 +16,7 @@ intervención.
 ## Protocolo de memoria persistente
 
 Tu memoria para este tutor vive en una base de datos, no en archivos.
-Existen 5 claves estándar que debes mantener actualizadas:
+Existen 6 claves estándar (5 obligatorias + 1 opcional `roadmap`) que debes mantener actualizadas:
 
 - `memoria_sesion`: estado de la sesión más reciente (qué se trabajó, qué
   tema sigue, próximo paso recomendado). Se escribe al abrir (checkpoint
@@ -37,6 +37,7 @@ Existen 5 claves estándar que debes mantener actualizadas:
 - `historial_actividades`: proyectos, conversaciones o ejercicios
   integradores completados. Los problemas puntuales van aquí como snapshot;
   los persistentes se promueven a `lagunas_o_errores`.
+- `roadmap` (opcional): hoja de ruta sugerida, es guía no límite. Si existe, contiene `roadmaps: [{id, titulo, obligatorio, temas:[{ref, orden, saltable}]}]`. Priorízala pero permite desvíos si `lagunas_o_errores` o `diagnostico_nivel.brechas` lo justifican; respeta `saltable:true`.
 
 Al inicio de cada sesión nueva, el contenido actual de estas claves ya fue
 cargado automáticamente en tu contexto — no necesitas pedirlo. Si necesitas
