@@ -2,7 +2,7 @@
 
 Plataforma de aprendizaje asistido por IA con tutores configurables, sesiones de estudio, memoria persistente gestionada por el propio agente vía Tool Calls, y auditoría completa. **MVP single-user, SQLite local**.
 
-> Estado: hardening sprint completado (48/48 tests). Listo para demo/portfolio. Ver `backend/docs/hallazgos-hardening.md` para limitaciones conocidas.
+> Estado: hardening sprint completado (49/49 tests, 2026-09-05). Backlog activo vacío. Listo para demo/portfolio. Ver `docs/backlog.md` y `docs/archive/hallazgos-resueltos.md`.
 
 ## Arquitectura
 
@@ -51,9 +51,19 @@ npm start --prefix frontend                            # http://localhost:4200
 ## Verificación
 
 ```bash
-cd backend && dotnet test          # 48/48 OK (MemoryPatchEngine + PromptBuilder + H-013 scaling)
+cd backend && dotnet test          # 49/49 OK (MemoryPatchEngine + PromptBuilder + H-013/P2/D-001)
 cd backend && dotnet build LearningAgents.slnx -c Release
-cd frontend && npm run build
+cd frontend && npm run build       # Angular 21
+```
+
+CI: `.github/workflows/ci.yml` (backend + frontend) en cada push a `main`.
+
+## Docker (prod local)
+
+```bash
+# requiere GEMINI_API_KEY en env
+docker compose up --build          # api :5017 + web :4200 (nginx proxy /api)
+# frontend prod usa apiUrl='' (same-origin) via nginx.conf
 ```
 
 Ejemplo API:
@@ -69,11 +79,11 @@ curl -X POST http://localhost:5017/api/sessions/1/messages -H "Content-Type: app
   -d '{"content":"Hola, quiero repasar closures","profile":"Standard"}'
 ```
 
-## Estado del hardening (2026-09-04)
+## Estado del hardening (2026-09-05)
 
-Resueltos y validados E2E: `H-001/003` Tracker persistencia, `H-006/007` semilla `habilidades` vs `temas`, `H-008/009/010` calidad pedagógica (tema puente, verificación, diagnóstico), `H-013` escalado prompt (cap 30 msgs + memoria truncada).
+Resueltos y validados E2E: `H-001/003` Tracker persistencia, `H-002` `RowVersion` concurrencia, `H-006/007` semilla `habilidades` vs `temas`, `H-008/009/010` calidad pedagógica, `H-011` `siguiente_tema`/`proximo_paso` (ya renderiza ambos), `H-013` + `P2` escalado (cap 30 + resumen + cache 30m), `D-001` `Goal` informativo inyectado (`Meta declarada...`), `P3` infra (CI, Docker, `environment.prod.ts`).
 
-Pendiente post-MVP: `H-002` concurrencia sin `RowVersion` (last-write-wins, improbable single-user), `H-011` `siguiente_tema` vs `proximo_paso` cosmético. Ver `docs/backlog.md`.
+Backlog activo vacío (`docs/backlog.md` solo `H-012` cerrado won't-fix). Histórico en `docs/archive/hallazgos-resueltos.md`.
 
 ## Seguridad
 
