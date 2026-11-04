@@ -4,25 +4,18 @@ using LearningAgents.Application.Dtos.Tutors;
 using LearningAgents.Application.Interfaces;
 using LearningAgents.Domain.Entities;
 using LearningAgents.Domain.Memory;
-using LearningAgents.Infrastructure.LLM;
-using LearningAgents.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace LearningAgents.Application.Services;
 
 internal sealed class TutorService(
-    LearningAgentsDbContext dbContext,
-    IOptions<GeminiOptions> geminiOptions,
-    IOptions<LlmProfilesOptions> llmProfilesOptions) : ITutorService
+    ILearningAgentsDbContext dbContext,
+    ILlmProfileCatalog llmProfileCatalog) : ITutorService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = false
     };
-
-    private readonly GeminiOptions geminiOptions = geminiOptions.Value;
-    private readonly LlmProfilesOptions llmProfilesOptions = llmProfilesOptions.Value;
 
     public async Task<IReadOnlyList<TutorResponse>> GetAllAsync(CancellationToken cancellationToken)
     {
@@ -46,14 +39,14 @@ internal sealed class TutorService(
     {
         var now = DateTime.UtcNow;
 
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await dbContext.BeginTransactionAsync(cancellationToken);
         var tutor = new Tutor
         {
             Name = request.Name,
             Description = request.Description,
             SystemPromptContent = request.SystemPromptContent,
             GeminiModel = ResolveGeminiModel(request.GeminiModel),
-            LlmProfile = ResolveDefaultLlmProfile(),
+            LlmProfile = ResolveLlmProfile(request.LlmProfile),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
@@ -83,8 +76,16 @@ internal sealed class TutorService(
         tutor.Name = request.Name;
         tutor.Description = request.Description;
         tutor.SystemPromptContent = request.SystemPromptContent;
-        tutor.GeminiModel = request.GeminiModel;
-        tutor.LlmProfile = ResolveDefaultLlmProfile();
+        if (!string.IsNullOrWhiteSpace(request.GeminiModel))
+        {
+            tutor.GeminiModel = request.GeminiModel.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.LlmProfile))
+        {
+            tutor.LlmProfile = request.LlmProfile.Trim();
+        }
+
         tutor.UpdatedAtUtc = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -117,10 +118,10 @@ internal sealed class TutorService(
         tutor.UpdatedAtUtc);
 
     private string ResolveGeminiModel(string? requestedModel) =>
-        string.IsNullOrWhiteSpace(requestedModel) ? geminiOptions.DefaultModel : requestedModel;
+        string.IsNullOrWhiteSpace(requestedModel) ? llmProfileCatalog.DefaultModel : requestedModel.Trim();
 
-    private string ResolveDefaultLlmProfile() =>
-        string.IsNullOrWhiteSpace(llmProfilesOptions.DefaultProfile) ? "gemini-default" : llmProfilesOptions.DefaultProfile;
+    private string ResolveLlmProfile(string? requestedProfile) =>
+        string.IsNullOrWhiteSpace(requestedProfile) ? llmProfileCatalog.DefaultProfile : requestedProfile.Trim();
 
     private static string BuildInitialStudentProfileJson(InitialStudentProfileRequest? profile)
     {

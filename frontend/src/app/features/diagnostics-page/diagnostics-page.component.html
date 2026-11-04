@@ -1,3 +1,21 @@
-<div class="h-dvh bg-surface text-text-primary">
-  <app-drawer [showCloseButton]="true" (closeRequested)="backToChat()" />
+<div class="flex h-dvh flex-col bg-surface text-text-primary">
+  @if (tutors().length > 1) {
+    <div class="flex items-center justify-between gap-3 border-b border-border bg-canvas px-5 py-2.5 text-xs">
+      <label class="flex items-center gap-2 text-text-secondary">
+        <span>Tutor:</span>
+        <select
+          class="rounded-xl border border-border bg-surface px-2.5 py-1.5 text-xs text-text-primary"
+          [value]="appState.activeTutor()?.id ?? ''"
+          (change)="selectTutorById($any($event.target).value)"
+        >
+          @for (tutor of tutors(); track tutor.id) {
+            <option [value]="tutor.id">{{ tutor.name }}</option>
+          }
+        </select>
+      </label>
+    </div>
+  }
+  <div class="min-h-0 flex-1">
+    <app-drawer [showCloseButton]="true" (closeRequested)="backToChat()" />
+  </div>
 </div>

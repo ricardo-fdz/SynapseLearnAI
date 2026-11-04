@@ -1,6 +1,7 @@
 using LearningAgents.Api.Controllers;
 using LearningAgents.Application;
 using LearningAgents.Application.Dtos.MemoryChanges;
+using LearningAgents.Application.Dtos.MemoryPatches;
 using LearningAgents.Application.Interfaces;
 using LearningAgents.Domain.Entities;
 using LearningAgents.Domain.Enums;
@@ -51,6 +52,34 @@ public sealed class MemoryChangeHistoryEndpointTests
         Assert.DoesNotContain(response.Items, item => item.Id is 1 or 4);
     }
 
+    [Fact]
+    public async Task RollbackEndpoint_RestoresPreviousValue_CreatesAuditRecord_AndRejectsForeignTutor()
+    {
+        await using var fixture = await HistoryFixture.CreateAsync();
+        var entry = await fixture.Db.MemoryEntries.SingleAsync(e => e.Id == 1);
+        entry.ValueJson = """{"proximo_paso":"Estado modificado erroneo"}""";
+        var change = await fixture.Db.MemoryChanges.SingleAsync(c => c.Id == 1);
+        change.PreviousValueJson = """{"proximo_paso":"Estado previo sano"}""";
+        change.NewValueJson = """{"proximo_paso":"Estado modificado erroneo"}""";
+        await fixture.Db.SaveChangesAsync();
+
+        var controller = new TutorMemoryChangesController(fixture.MemoryChangeService);
+
+        // Wrong tutor must get 404
+        var foreignAttempt = await controller.Rollback(tutorId: 2, changeId: 1);
+        Assert.IsType<NotFoundResult>(foreignAttempt.Result);
+
+        // Owner tutor succeeds and restores previous JSON + appends audit change
+        var rollbackAction = await controller.Rollback(tutorId: 1, changeId: 1);
+        var okResult = Assert.IsType<OkObjectResult>(rollbackAction.Result);
+        var result = Assert.IsType<MemoryPatchResult>(okResult.Value);
+
+        Assert.Equal("""{"proximo_paso":"Estado previo sano"}""", result.MemoryEntry.ValueJson);
+        Assert.Equal("Set", result.MemoryChange.Operation);
+        Assert.Equal("/", result.MemoryChange.Path);
+        Assert.Contains("Rollback manual al estado previo del cambio #1", result.MemoryChange.Reason);
+    }
+
     private sealed class HistoryFixture : IAsyncDisposable
     {
         private readonly SqliteConnection connection;
@@ -60,9 +89,11 @@ public sealed class MemoryChangeHistoryEndpointTests
         {
             this.connection = connection;
             this.serviceProvider = serviceProvider;
+            Db = serviceProvider.GetRequiredService<LearningAgentsDbContext>();
             MemoryChangeService = serviceProvider.GetRequiredService<IMemoryChangeService>();
         }
 
+        public LearningAgentsDbContext Db { get; }
         public IMemoryChangeService MemoryChangeService { get; }
 
         public static async Task<HistoryFixture> CreateAsync()
@@ -73,6 +104,7 @@ public sealed class MemoryChangeHistoryEndpointTests
             var services = new ServiceCollection();
             services.AddDbContext<LearningAgentsDbContext>(options => options.UseSqlite(connection));
             services.AddApplicationServices();
+            services.AddTestInfrastructureBindings();
             var provider = services.BuildServiceProvider();
             var db = provider.GetRequiredService<LearningAgentsDbContext>();
             await db.Database.EnsureCreatedAsync();
@@ -111,6 +143,7 @@ public sealed class MemoryChangeHistoryEndpointTests
 
         public async ValueTask DisposeAsync()
         {
+            await Db.DisposeAsync();
             await serviceProvider.DisposeAsync();
             await connection.DisposeAsync();
         }

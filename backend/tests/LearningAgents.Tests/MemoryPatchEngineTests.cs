@@ -371,6 +371,73 @@ public sealed class MemoryPatchEngineTests
         Assert.Contains("reactivacion", result.MemoryChange.Reason);
     }
 
+    [Fact]
+    public async Task ApplyPatchAsync_ConcurrentModification_DetectsConcurrencyConflict()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        await fixture.Engine.ApplyPatchAsync(1, Patch("memoria_sesion", MemoryPatchOperation.Set, "/proximo_paso", null, "\"Inicial\""), messageId: 1);
+
+        var options = new DbContextOptionsBuilder<LearningAgentsDbContext>()
+            .UseSqlite(fixture.Connection)
+            .Options;
+
+        await using var db1 = new LearningAgentsDbContext(options);
+        await using var db2 = new LearningAgentsDbContext(options);
+
+        var entry1 = await db1.MemoryEntries.SingleAsync(entry => entry.TutorId == 1 && entry.Key == "memoria_sesion");
+        var entry2 = await db2.MemoryEntries.SingleAsync(entry => entry.TutorId == 1 && entry.Key == "memoria_sesion");
+
+        entry1.ValueJson = "{\"proximo_paso\":\"Turno A\"}";
+        entry1.UpdatedAtUtc = DateTime.UtcNow;
+        await db1.SaveChangesAsync();
+
+        entry2.ValueJson = "{\"proximo_paso\":\"Turno B\"}";
+        entry2.UpdatedAtUtc = DateTime.UtcNow;
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => db2.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task ApplyPatchAsync_WhenUnderlyingRowChanged_ThrowsInvalidMemoryPatchException()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        await fixture.Engine.ApplyPatchAsync(1, Patch("memoria_sesion", MemoryPatchOperation.Set, "/proximo_paso", null, "\"Inicial\""), messageId: 1);
+
+        var trackedEntry = await fixture.Db.MemoryEntries.SingleAsync(entry => entry.TutorId == 1 && entry.Key == "memoria_sesion");
+
+        var options = new DbContextOptionsBuilder<LearningAgentsDbContext>()
+            .UseSqlite(fixture.Connection)
+            .Options;
+        await using (var concurrentDb = new LearningAgentsDbContext(options))
+        {
+            var concurrentEntry = await concurrentDb.MemoryEntries.SingleAsync(entry => entry.TutorId == 1 && entry.Key == "memoria_sesion");
+            concurrentEntry.ValueJson = "{\"proximo_paso\":\"Concurrente\"}";
+            concurrentEntry.UpdatedAtUtc = DateTime.UtcNow;
+            await concurrentDb.SaveChangesAsync();
+        }
+
+        var exception = await Assert.ThrowsAsync<InvalidMemoryPatchException>(() =>
+            fixture.Engine.ApplyPatchAsync(1, Patch("memoria_sesion", MemoryPatchOperation.Set, "/proximo_paso", null, "\"Tardio\""), messageId: 1));
+        Assert.Contains("Conflicto de concurrencia", exception.Message);
+        Assert.NotNull(trackedEntry.RowVersion);
+    }
+
+    [Fact]
+    public async Task MemoryToolHandler_ListMemory_IncludesAllSixStandardKeysIncludingRoadmap()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var handler = fixture.ServiceProvider.GetRequiredService<IMemoryToolHandler>();
+
+        var response = await handler.HandleAsync(1, "listar_memoria", JsonSerializer.Deserialize<JsonElement>("{}"), messageId: null);
+
+        Assert.True(response.Response.GetProperty("success").GetBoolean());
+        var keys = response.Response.GetProperty("memories")
+            .EnumerateArray()
+            .Select(item => item.GetProperty("key").GetString()!)
+            .ToArray();
+        Assert.Equal(MemoryKeys.All, keys);
+        Assert.Contains(MemoryKeys.Roadmap, keys);
+    }
+
     private static MemoryPatch Patch(string key, MemoryPatchOperation operation, string path, string? targetId, string valueJson) =>
         Patch(key, operation, path, targetId, valueJson, "test reason");
 
@@ -390,6 +457,8 @@ public sealed class MemoryPatchEngineTests
             Engine = serviceProvider.GetRequiredService<IMemoryPatchEngine>();
         }
 
+        public SqliteConnection Connection => connection;
+        public ServiceProvider ServiceProvider => serviceProvider;
         public LearningAgentsDbContext Db { get; }
         public IMemoryPatchEngine Engine { get; }
 
@@ -401,6 +470,7 @@ public sealed class MemoryPatchEngineTests
             var services = new ServiceCollection();
             services.AddDbContext<LearningAgentsDbContext>(options => options.UseSqlite(connection));
             services.AddApplicationServices();
+            services.AddTestInfrastructureBindings();
             var provider = services.BuildServiceProvider();
             var db = provider.GetRequiredService<LearningAgentsDbContext>();
             await db.Database.EnsureCreatedAsync();

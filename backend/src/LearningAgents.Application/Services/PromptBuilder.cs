@@ -1,23 +1,28 @@
-using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using LearningAgents.Application.Dtos.MemoryEntries;
+using LearningAgents.Application.Dtos.Tutors;
 using LearningAgents.Application.Enums;
 using LearningAgents.Application.Interfaces;
 using LearningAgents.Domain.Memory;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace LearningAgents.Application.Services;
 
 internal sealed class PromptBuilder(
     ITutorService tutorService,
-    IMemoryEntryService memoryEntryService) : IPromptBuilder
+    IMemoryEntryService memoryEntryService,
+    IMemoryCache memoryCache) : IPromptBuilder
 {
     private const string GlobalPromptFileName = "PROMPT_GLOBAL.md";
     private const string GlobalPromptFallback = "Actúa como un tutor de programación útil y claro.";
+    private const string GlobalPromptCacheKey = "prompt:global";
     private static readonly TimeSpan StaticPromptCacheTtl = TimeSpan.FromMinutes(30);
-    private static string? _cachedGlobalPrompt;
-    private static DateTime _globalPromptExpiry;
-    private static readonly ConcurrentDictionary<int, (string prompt, DateTime expiry, DateTime tutorUpdatedAt)> _tutorStaticCache = new();
+
+    private const int MaxDomainMapItems = 40;
+    private const int MaxGapItems = 25;
+    private const int MaxActivityHistoryItems = 5;
+    private const int MaxFieldChars = 500;
 
     private static readonly string[] MemoryRenderOrder =
     [
@@ -81,31 +86,28 @@ internal sealed class PromptBuilder(
         return builder.ToString().TrimEnd();
     }
 
-    private static string ReadGlobalPrompt()
+    private string ReadGlobalPrompt()
     {
-        if (_cachedGlobalPrompt != null && DateTime.UtcNow < _globalPromptExpiry)
-            return _cachedGlobalPrompt;
-
-        var path = Path.Combine(AppContext.BaseDirectory, GlobalPromptFileName);
-        var content = File.Exists(path) ? File.ReadAllText(path) : GlobalPromptFallback;
-        _cachedGlobalPrompt = content;
-        _globalPromptExpiry = DateTime.UtcNow.Add(StaticPromptCacheTtl);
-        return content;
+        return memoryCache.GetOrCreate(GlobalPromptCacheKey, entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = StaticPromptCacheTtl;
+            var path = Path.Combine(AppContext.BaseDirectory, GlobalPromptFileName);
+            return File.Exists(path) ? File.ReadAllText(path) : GlobalPromptFallback;
+        })!;
     }
 
-    private static string GetOrCreateStaticPrompt(LearningAgents.Application.Dtos.Tutors.TutorResponse tutor)
+    private string GetOrCreateStaticPrompt(TutorResponse tutor)
     {
-        if (_tutorStaticCache.TryGetValue(tutor.Id, out var cached) && DateTime.UtcNow < cached.expiry && cached.tutorUpdatedAt == tutor.UpdatedAtUtc)
-            return cached.prompt;
-
-        var prompt = new StringBuilder()
-            .AppendLine(ReadGlobalPrompt().Trim())
-            .AppendLine()
-            .AppendLine(tutor.SystemPromptContent.Trim())
-            .ToString().TrimEnd() + Environment.NewLine;
-
-        _tutorStaticCache[tutor.Id] = (prompt, DateTime.UtcNow.Add(StaticPromptCacheTtl), tutor.UpdatedAtUtc);
-        return prompt;
+        var cacheKey = $"prompt:tutor:{tutor.Id}:{tutor.UpdatedAtUtc.Ticks}";
+        return memoryCache.GetOrCreate(cacheKey, entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = StaticPromptCacheTtl;
+            return new StringBuilder()
+                .AppendLine(ReadGlobalPrompt().Trim())
+                .AppendLine()
+                .AppendLine(tutor.SystemPromptContent.Trim())
+                .ToString().TrimEnd() + Environment.NewLine;
+        })!;
     }
 
     private static IReadOnlyCollection<string> GetRequiredKeys(ContextLoadProfile profile) => profile switch
@@ -223,8 +225,17 @@ internal sealed class PromptBuilder(
             return builder.ToString();
         }
 
+        var items = topics.EnumerateArray().ToArray();
+        var truncated = items.Length > MaxDomainMapItems;
+        var slice = truncated ? items.TakeLast(MaxDomainMapItems).ToArray() : items;
+
+        if (truncated)
+        {
+            builder.AppendLine($"_Mostrando {MaxDomainMapItems} de {items.Length} temas (usa leer_memoria para consultar el mapa completo)._");
+        }
+
         var wrote = false;
-        foreach (var topic in topics.EnumerateArray())
+        foreach (var topic in slice)
         {
             wrote = true;
             var name = GetString(topic, "tema") ?? GetString(topic, "habilidad") ?? GetString(topic, "nombre") ?? "Tema sin nombre";
@@ -259,9 +270,6 @@ internal sealed class PromptBuilder(
 
         return builder.ToString();
     }
-
-    private const int MaxActivityHistoryItems = 5;
-    private const int MaxFieldChars = 500;
 
     private static string RenderActivityHistory(JsonElement root)
     {
@@ -372,8 +380,17 @@ internal sealed class PromptBuilder(
             return;
         }
 
+        var items = gaps.EnumerateArray().ToArray();
+        var truncated = items.Length > MaxGapItems;
+        var slice = truncated ? items.TakeLast(MaxGapItems).ToArray() : items;
+
+        if (truncated)
+        {
+            builder.AppendLine($"_Mostrando {MaxGapItems} de {items.Length} lagunas._");
+        }
+
         var wrote = false;
-        foreach (var gap in gaps.EnumerateArray())
+        foreach (var gap in slice)
         {
             wrote = true;
             var topic = GetString(gap, "tema") ?? GetString(gap, "concepto") ?? GetString(gap, "titulo") ?? "Laguna sin titulo";

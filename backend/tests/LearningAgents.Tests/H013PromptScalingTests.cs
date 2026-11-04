@@ -93,6 +93,7 @@ public sealed class H013PromptScalingTests
             var services = new ServiceCollection();
             services.AddDbContext<LearningAgentsDbContext>(o => o.UseSqlite(conn));
             services.AddApplicationServices();
+            services.AddTestInfrastructureBindings();
             services.AddSingleton<IOptions<GeminiOptions>>(_ => Options.Create(new GeminiOptions()));
             services.AddSingleton<IOptions<LlmProfilesOptions>>(_ => Options.Create(new LlmProfilesOptions()));
             var sp = services.BuildServiceProvider();
@@ -127,6 +128,7 @@ public sealed class H013PromptScalingTests
             var services = new ServiceCollection();
             services.AddDbContext<LearningAgentsDbContext>(o => o.UseSqlite(conn));
             services.AddApplicationServices();
+            services.AddTestInfrastructureBindings();
             // Override router to use capturing provider for any profile
             services.AddSingleton<ILLMProviderRouter>(_ => new CapturingRouter(fake));
             services.AddSingleton<IOptions<GeminiOptions>>(_ => Options.Create(new GeminiOptions { DefaultModel = "test-model" }));

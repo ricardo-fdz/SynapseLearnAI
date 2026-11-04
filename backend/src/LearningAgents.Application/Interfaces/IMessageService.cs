@@ -5,7 +5,7 @@ namespace LearningAgents.Application.Interfaces;
 
 public interface IMessageService
 {
-    Task<IReadOnlyList<MessageResponse>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<MessageResponse>> GetAllAsync(int limit = 100, CancellationToken cancellationToken = default);
     Task<MessageResponse?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<PagedResult<MessageResponse>?> GetBySessionPagedAsync(
         int sessionId,

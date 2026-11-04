@@ -67,6 +67,7 @@ public sealed class SessionMessagesEndpointTests
             var services = new ServiceCollection();
             services.AddDbContext<LearningAgentsDbContext>(options => options.UseSqlite(connection));
             services.AddApplicationServices();
+            services.AddTestInfrastructureBindings();
             var provider = services.BuildServiceProvider();
             var db = provider.GetRequiredService<LearningAgentsDbContext>();
             await db.Database.EnsureCreatedAsync();

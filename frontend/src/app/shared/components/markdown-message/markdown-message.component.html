@@ -1,5 +1,5 @@
 <div class="markdown-message">
-  @for (block of blocks(); track $index) {
+  @for (block of blocks(); track $index; let blockIdx = $index) {
     @switch (block.type) {
       @case ('heading') {
         @if (block.level === 1) {
@@ -30,8 +30,133 @@
           }
         </ol>
       }
+      @case ('mermaid') {
+        <app-mermaid-diagram [code]="block.code" [deferRender]="deferDiagrams" />
+      }
+      @case ('listening') {
+        <div class="listening-card" role="region" aria-label="Ejercicio de comprensión auditiva">
+          <div class="listening-header">
+            <div class="listening-meta">
+              <span class="listening-icon" aria-hidden="true">🎧</span>
+              <div class="listening-title-group">
+                <span class="listening-title">Comprensión auditiva</span>
+                <span class="listening-subtitle">Escucha con atención antes de responder</span>
+              </div>
+            </div>
+
+            <div class="listening-actions">
+              <button
+                type="button"
+                class="listening-rate-toggle"
+                [title]="'Velocidad: ' + getRate(block.blockId, block.baseRate) + 'x. Clic para cambiar'"
+                (click)="cycleRate(block.blockId, block.baseRate)"
+              >
+                {{ getRate(block.blockId, block.baseRate) }}x
+              </button>
+
+              <button
+                type="button"
+                class="listening-play-button"
+                [class.is-playing]="speechService.isActive(block.blockId)"
+                [attr.aria-label]="speechService.isActive(block.blockId) ? 'Detener reproducción' : 'Reproducir audio'"
+                (click)="toggleListening(block)"
+              >
+                @if (speechService.isActive(block.blockId)) {
+                  <span class="btn-icon">⏹</span>
+                  <span>Detener</span>
+                } @else {
+                  <span class="btn-icon">▶</span>
+                  <span>Reproducir</span>
+                }
+              </button>
+            </div>
+          </div>
+
+          @if (speechService.isActive(block.blockId)) {
+            <div class="listening-visualizer" aria-live="polite">
+              <div class="waveform" aria-hidden="true">
+                <span class="bar bar-1"></span>
+                <span class="bar bar-2"></span>
+                <span class="bar bar-3"></span>
+                <span class="bar bar-4"></span>
+                <span class="bar bar-5"></span>
+              </div>
+              <span class="visualizer-label">
+                @if (speechService.loading()) {
+                  Cargando audio...
+                } @else {
+                  Reproduciendo a {{ getRate(block.blockId, block.baseRate) }}x...
+                }
+              </span>
+            </div>
+          }
+
+          @if (speechService.notice(); as noticeText) {
+            @if (speechService.isActive(block.blockId)) {
+              <p class="listening-notice">{{ noticeText }}</p>
+            }
+          }
+
+          <div class="listening-body">
+            <div class="transcript-section">
+              <button
+                type="button"
+                class="transcript-toggle-button"
+                (click)="toggleTranscript(block.blockId)"
+                [attr.aria-expanded]="isRevealed(block.blockId)"
+              >
+                @if (isRevealed(block.blockId)) {
+                  <span>🙈 Ocultar transcripción</span>
+                } @else {
+                  <span>👁 Ver transcripción (spoiler)</span>
+                }
+              </button>
+
+              @if (isRevealed(block.blockId)) {
+                <div class="transcript-revealed">
+                  <p>{{ block.text }}</p>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
       @case ('code-block') {
-        <pre><code>{{ block.text }}</code></pre>
+        <div class="code-block-shell">
+          <div class="code-block-header">
+            <span class="code-block-lang">{{ block.language || 'código' }}</span>
+            <button
+              type="button"
+              class="code-copy-btn"
+              (click)="copyCode(blockIdx, block.text)"
+            >
+              {{ copiedBlockIndex() === blockIdx ? '¡Copiado!' : 'Copiar' }}
+            </button>
+          </div>
+          <pre><code>{{ block.text }}</code></pre>
+        </div>
+      }
+      @case ('table') {
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                @for (header of block.headers; track $index) {
+                  <th><ng-container *ngTemplateOutlet="inline; context: { tokens: header }" /></th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of block.rows; track $index) {
+                <tr>
+                  @for (cell of row; track $index) {
+                    <td><ng-container *ngTemplateOutlet="inline; context: { tokens: cell }" /></td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       }
       @case ('rule') {
         <hr />
@@ -54,6 +179,9 @@
       }
       @case ('code') {
         <code>{{ token.text }}</code>
+      }
+      @case ('link') {
+        <a [href]="token.url" target="_blank" rel="noopener noreferrer">{{ token.text }}</a>
       }
       @case ('math') {
         <span class="math-inline" [innerHTML]="token.html"></span>

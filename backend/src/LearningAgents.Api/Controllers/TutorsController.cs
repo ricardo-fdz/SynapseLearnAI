@@ -9,6 +9,7 @@ namespace LearningAgents.Api.Controllers;
 [Route("api/[controller]")]
 public sealed class TutorsController(
     ITutorService tutorService,
+    IStudySessionService studySessionService,
     IPromptBuilder promptBuilder) : ControllerBase
 {
     [HttpGet]
@@ -30,11 +31,22 @@ public sealed class TutorsController(
     public async Task<IActionResult> GetPromptPreview(
         int id,
         [FromQuery] ContextLoadProfile profile = ContextLoadProfile.Standard,
+        [FromQuery] int? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var prompt = await promptBuilder.BuildSystemPromptAsync(id, profile, cancellationToken);
+            string? sessionGoal = null;
+            if (sessionId.HasValue)
+            {
+                var session = await studySessionService.GetByIdAsync(sessionId.Value, cancellationToken);
+                if (session is not null && session.TutorId == id)
+                {
+                    sessionGoal = session.Goal;
+                }
+            }
+
+            var prompt = await promptBuilder.BuildSystemPromptAsync(id, profile, sessionGoal, cancellationToken);
             return Content(prompt, "text/plain");
         }
         catch (KeyNotFoundException)

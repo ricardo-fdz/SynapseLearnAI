@@ -16,7 +16,7 @@ internal static class MemoryToolDeclarations
               "properties": {
                 "key": {
                   "type": "string",
-                  "enum": ["memoria_sesion", "perfil_estudiante", "mapa_dominio", "lagunas_o_errores", "historial_actividades"]
+                  "enum": ["memoria_sesion", "perfil_estudiante", "mapa_dominio", "lagunas_o_errores", "historial_actividades", "roadmap"]
                 }
               },
               "required": ["key"]
@@ -186,7 +186,7 @@ internal static class MemoryToolDeclarations
                   "properties": {
                     "key": {
                       "type": "string",
-                      "enum": ["memoria_sesion", "perfil_estudiante", "mapa_dominio", "lagunas_o_errores", "historial_actividades"]
+                      "enum": ["memoria_sesion", "perfil_estudiante", "mapa_dominio", "lagunas_o_errores", "historial_actividades", "roadmap"]
                     },
                     "operation": {
                       "type": "string",
@@ -217,7 +217,7 @@ internal static class MemoryToolDeclarations
             """)),
         new(
             "listar_memoria",
-            "Lista las 5 keys de memoria disponibles e indica si cada una tiene contenido o esta vacia, sin devolver contenido completo.",
+            "Lista las 6 keys de memoria disponibles e indica si cada una tiene contenido o esta vacia, sin devolver contenido completo.",
             Json("""
             {
               "type": "object",

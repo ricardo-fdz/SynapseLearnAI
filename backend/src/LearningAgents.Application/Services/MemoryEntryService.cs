@@ -3,12 +3,11 @@ using LearningAgents.Application.Dtos.MemoryEntries;
 using LearningAgents.Application.Interfaces;
 using LearningAgents.Domain.Entities;
 using LearningAgents.Domain.Memory;
-using LearningAgents.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace LearningAgents.Application.Services;
 
-internal sealed class MemoryEntryService(LearningAgentsDbContext dbContext) : IMemoryEntryService
+internal sealed class MemoryEntryService(ILearningAgentsDbContext dbContext) : IMemoryEntryService
 {
     public async Task<IReadOnlyList<MemoryEntryResponse>> GetAllAsync(CancellationToken cancellationToken)
     {

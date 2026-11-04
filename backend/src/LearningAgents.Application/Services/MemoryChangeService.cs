@@ -1,18 +1,25 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using LearningAgents.Application.Common;
 using LearningAgents.Application.Dtos.MemoryChanges;
+using LearningAgents.Application.Dtos.MemoryEntries;
+using LearningAgents.Application.Dtos.MemoryPatches;
 using LearningAgents.Application.Interfaces;
 using LearningAgents.Domain.Entities;
-using LearningAgents.Infrastructure.Persistence;
+using LearningAgents.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace LearningAgents.Application.Services;
 
-internal sealed class MemoryChangeService(LearningAgentsDbContext dbContext) : IMemoryChangeService
+internal sealed class MemoryChangeService(ILearningAgentsDbContext dbContext) : IMemoryChangeService
 {
-    public async Task<IReadOnlyList<MemoryChangeResponse>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<MemoryChangeResponse>> GetAllAsync(int limit, CancellationToken cancellationToken)
     {
+        var normalizedLimit = Math.Clamp(limit, 1, 500);
         return await dbContext.MemoryChanges
             .AsNoTracking()
-            .OrderBy(change => change.Id)
+            .OrderByDescending(change => change.Id)
+            .Take(normalizedLimit)
             .Select(change => ToResponse(change))
             .ToListAsync(cancellationToken);
     }
@@ -64,6 +71,73 @@ internal sealed class MemoryChangeService(LearningAgentsDbContext dbContext) : I
         return await ToPagedResponseAsync(query, normalizedPage, normalizedPageSize, cancellationToken);
     }
 
+    public async Task<ServiceResult<MemoryPatchResult>> RollbackAsync(
+        int tutorId,
+        int changeId,
+        CancellationToken cancellationToken)
+    {
+        var change = await dbContext.MemoryChanges
+            .Include(item => item.MemoryEntry)
+            .FirstOrDefaultAsync(
+                item => item.Id == changeId && item.MemoryEntry.TutorId == tutorId,
+                cancellationToken);
+        if (change is null)
+        {
+            return ServiceResult<MemoryPatchResult>.Failure("El cambio de memoria no existe para este tutor.", 404);
+        }
+
+        try
+        {
+            if (JsonNode.Parse(change.PreviousValueJson) is not JsonObject)
+            {
+                return ServiceResult<MemoryPatchResult>.Failure("El valor previo del cambio no es un objeto JSON válido.", 400);
+            }
+        }
+        catch (JsonException exception)
+        {
+            return ServiceResult<MemoryPatchResult>.Failure($"JSON previo inválido: {exception.Message}", 400);
+        }
+
+        await using var transaction = await dbContext.BeginTransactionAsync(cancellationToken);
+        var now = DateTime.UtcNow;
+        var entry = change.MemoryEntry;
+        var beforeRollbackJson = entry.ValueJson;
+
+        entry.ValueJson = change.PreviousValueJson;
+        entry.UpdatedAtUtc = now;
+
+        var rollbackChange = new MemoryChange
+        {
+            MemoryEntryId = entry.Id,
+            MessageId = null,
+            Operation = MemoryPatchOperation.Set,
+            Path = "/",
+            TargetId = string.Empty,
+            PreviousValueJson = beforeRollbackJson,
+            NewValueJson = change.PreviousValueJson,
+            Reason = $"Rollback manual al estado previo del cambio #{changeId}",
+            CreatedAtUtc = now
+        };
+
+        dbContext.MemoryChanges.Add(rollbackChange);
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return ServiceResult<MemoryPatchResult>.Failure(
+                "Conflicto de concurrencia al revertir la memoria. Recarga e intenta de nuevo.",
+                409);
+        }
+
+        return ServiceResult<MemoryPatchResult>.Success(
+            new MemoryPatchResult(ToMemoryEntryResponse(entry), ToResponse(rollbackChange)));
+    }
+
     private static (int Page, int PageSize) NormalizePagination(int page, int pageSize) =>
         (Math.Max(1, page), Math.Clamp(pageSize, 1, 100));
 
@@ -85,6 +159,15 @@ internal sealed class MemoryChangeService(LearningAgentsDbContext dbContext) : I
 
         return new PagedMemoryChangeHistoryResponse(page, pageSize, totalCount, items);
     }
+
+    private static MemoryEntryResponse ToMemoryEntryResponse(MemoryEntry entry) => new(
+        entry.Id,
+        entry.TutorId,
+        entry.Key,
+        entry.ValueJson,
+        entry.SchemaVersion,
+        entry.CreatedAtUtc,
+        entry.UpdatedAtUtc);
 
     private static MemoryChangeResponse ToResponse(MemoryChange change) => new(
         change.Id,

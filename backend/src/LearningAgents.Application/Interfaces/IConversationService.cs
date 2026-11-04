@@ -9,4 +9,9 @@ public interface IConversationService
         int sessionId,
         CreateConversationMessageRequest request,
         CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<ConversationStreamEvent> StreamMessageAsync(
+        int sessionId,
+        CreateConversationMessageRequest request,
+        CancellationToken cancellationToken = default);
 }

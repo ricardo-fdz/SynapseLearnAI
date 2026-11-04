@@ -2,12 +2,11 @@ using LearningAgents.Application.Common;
 using LearningAgents.Application.Dtos.StudySessions;
 using LearningAgents.Application.Interfaces;
 using LearningAgents.Domain.Entities;
-using LearningAgents.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace LearningAgents.Application.Services;
 
-internal sealed class StudySessionService(LearningAgentsDbContext dbContext) : IStudySessionService
+internal sealed class StudySessionService(ILearningAgentsDbContext dbContext) : IStudySessionService
 {
     public async Task<IReadOnlyList<StudySessionResponse>> GetAllAsync(CancellationToken cancellationToken)
     {

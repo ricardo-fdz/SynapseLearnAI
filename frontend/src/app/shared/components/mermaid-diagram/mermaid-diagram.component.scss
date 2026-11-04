@@ -1,0 +1,87 @@
+:host {
+  display: block;
+}
+
+.diagram-shell {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  color: var(--color-text-primary);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.diagram-header {
+  align-items: center;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  font-size: 0.75rem;
+  justify-content: space-between;
+  padding: 0.4rem 0.85rem;
+}
+
+.diagram-label {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.diagram-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.diagram-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.diagram-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.diagram-canvas {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  padding: 1rem;
+}
+
+.diagram-canvas ::ng-deep svg {
+  height: auto;
+  max-width: 100%;
+}
+
+.diagram-source {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  margin: 0;
+  max-height: 20rem;
+  overflow: auto;
+  padding: 0.85rem;
+  white-space: pre;
+}
+
+.diagram-status {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem 0;
+}
+
+.diagram-error {
+  background: var(--color-danger-bg);
+  border-bottom: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+}

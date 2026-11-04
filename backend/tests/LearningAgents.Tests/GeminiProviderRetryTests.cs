@@ -10,6 +10,30 @@ namespace LearningAgents.Tests;
 public sealed class GeminiProviderRetryTests
 {
     [Fact]
+    public async Task GenerateAsync_SendsApiKeyInHeader_NotInUrlQuery()
+    {
+        var handler = new QueueMessageHandler(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"candidates":[{"content":{"parts":[{"text":"secure"}]}}]}""")
+        });
+
+        var provider = new GeminiProvider(
+            new HttpClient(handler),
+            Options.Create(new GeminiOptions { ApiKey = "secret-api-key-123" }));
+
+        var response = await provider.GenerateAsync(
+            new PromptRequest("gemini-test", "system", [new LLMMessage("user", "hello")], Tools: null),
+            CancellationToken.None);
+
+        Assert.True(response.IsSuccess);
+        Assert.Equal("secure", response.Content);
+        var uri = Assert.Single(handler.RequestUris);
+        Assert.DoesNotContain("key=", uri);
+        Assert.DoesNotContain("secret-api-key-123", uri);
+        Assert.Equal("secret-api-key-123", Assert.Single(handler.ApiKeyHeaders));
+    }
+
+    [Fact]
     public async Task GenerateAsync_RetriesTransient429_ThenReturnsSuccess()
     {
         var handler = new QueueMessageHandler(
@@ -262,6 +286,8 @@ public sealed class GeminiProviderRetryTests
 
         public List<string> RequestUris { get; } = [];
 
+        public List<string> ApiKeyHeaders { get; } = [];
+
         public List<string> RequestBodies { get; } = [];
 
         public int CallCount { get; private set; }
@@ -270,6 +296,11 @@ public sealed class GeminiProviderRetryTests
         {
             CallCount++;
             RequestUris.Add(request.RequestUri?.ToString() ?? string.Empty);
+            if (request.Headers.TryGetValues("x-goog-api-key", out var values))
+            {
+                ApiKeyHeaders.AddRange(values);
+            }
+
             RequestBodies.Add(request.Content is null
                 ? string.Empty
                 : await request.Content.ReadAsStringAsync(cancellationToken));

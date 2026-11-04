@@ -10,6 +10,7 @@ const string AngularCorsPolicy = "AngularLocalhost";
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=learning-agents.db";
 
+builder.Services.AddMemoryCache();
 builder.Services.AddDbContext<LearningAgentsDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
@@ -33,6 +34,15 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<LearningAgentsDbContext>();
+    if (db.Database.IsRelational())
+    {
+        await db.Database.MigrateAsync();
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -50,4 +60,4 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .WithName("HealthCheck");
 
-app.Run();
+await app.RunAsync();

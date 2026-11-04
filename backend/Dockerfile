@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY LearningAgents.slnx ./
+COPY LearningAgents.slnx nuget.config ./
 COPY src/LearningAgents.Domain/ src/LearningAgents.Domain/
 COPY src/LearningAgents.Infrastructure/ src/LearningAgents.Infrastructure/
 COPY src/LearningAgents.Application/ src/LearningAgents.Application/
 COPY src/LearningAgents.Api/ src/LearningAgents.Api/
 RUN dotnet publish src/LearningAgents.Api/LearningAgents.Api.csproj -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 # SQLite DB persisted via volume

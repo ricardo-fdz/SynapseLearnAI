@@ -9,9 +9,11 @@ namespace LearningAgents.Api.Controllers;
 public sealed class MessagesController(IMessageService messageService) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<MessageResponse>>> GetAll(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<MessageResponse>>> GetAll(
+        [FromQuery] int limit = 100,
+        CancellationToken cancellationToken = default)
     {
-        var messages = await messageService.GetAllAsync(cancellationToken);
+        var messages = await messageService.GetAllAsync(limit, cancellationToken);
         return Ok(messages);
     }
 

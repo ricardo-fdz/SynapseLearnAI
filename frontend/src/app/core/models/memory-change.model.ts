@@ -6,6 +6,8 @@ export interface MemoryChange {
   operation: string;
   path: string;
   targetId: string;
+  previousValueJson?: string;
+  newValueJson?: string;
   reason: string;
   createdAtUtc: string;
 }

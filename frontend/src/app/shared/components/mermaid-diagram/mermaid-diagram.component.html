@@ -1,0 +1,29 @@
+<div class="diagram-shell">
+  <div class="diagram-header">
+    <span class="diagram-label">Diagrama</span>
+    <div class="diagram-actions">
+      @if (!deferRender && (svg() || error())) {
+        <button type="button" class="diagram-btn" (click)="toggleSource()">
+          {{ showSource() ? 'Ver diagrama' : 'Ver código' }}
+        </button>
+      }
+      <button type="button" class="diagram-btn" (click)="copySource()">
+        {{ copied() ? '¡Copiado!' : 'Copiar' }}
+      </button>
+    </div>
+  </div>
+
+  @if (deferRender) {
+    <p class="diagram-status">Generando diagrama…</p>
+    <pre class="diagram-source"><code>{{ code }}</code></pre>
+  } @else if (showSource()) {
+    <pre class="diagram-source"><code>{{ code }}</code></pre>
+  } @else if (svg(); as svgHtml) {
+    <div class="diagram-canvas" role="img" aria-label="Diagrama generado por el tutor" [innerHTML]="svgHtml"></div>
+  } @else if (error(); as errorMessage) {
+    <p class="diagram-error" role="alert">No se pudo dibujar el diagrama: {{ errorMessage }}</p>
+    <pre class="diagram-source"><code>{{ code }}</code></pre>
+  } @else {
+    <p class="diagram-status">Dibujando diagrama…</p>
+  }
+</div>

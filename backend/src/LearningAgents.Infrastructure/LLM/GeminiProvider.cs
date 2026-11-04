@@ -1,13 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using LearningAgents.Domain.LLM;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace LearningAgents.Infrastructure.LLM;
 
-public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions> options) : ILLMProvider
+public sealed class GeminiProvider(
+    HttpClient httpClient,
+    IOptions<GeminiOptions> options,
+    ILogger<GeminiProvider>? logger = null) : ILLMProvider
 {
     private const int MaxTransientRetries = 3;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -37,7 +41,10 @@ public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions
             && IsTransientStatus(response.StatusCode)
             && HasFallbackModel(request.Model))
         {
-            Console.WriteLine($"Gemini model {request.Model} exhausted transient retries. Trying fallback model {options.FallbackModel}.");
+            logger?.LogWarning(
+                "Gemini model {Model} exhausted transient retries. Trying fallback model {FallbackModel}.",
+                request.Model,
+                options.FallbackModel);
             (response, responseText) = await SendWithRetriesAsync(BuildEndpoint(options.FallbackModel), payload, cancellationToken);
             if (response is null)
             {
@@ -59,16 +66,17 @@ public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions
         try
         {
             using var document = JsonDocument.Parse(responseText);
+            var usage = ExtractUsage(document.RootElement);
             var functionCalls = ExtractFunctionCalls(document.RootElement);
             if (functionCalls.Count > 0)
             {
-                return LLMResponse.ToolCalls(functionCalls);
+                return LLMResponse.ToolCalls(functionCalls, usage);
             }
 
             var text = ExtractGeneratedText(document.RootElement);
             return string.IsNullOrWhiteSpace(text)
                 ? LLMResponse.Failure("Gemini response did not contain generated text.")
-                : LLMResponse.Success(text);
+                : LLMResponse.Success(text, usage);
         }
         catch (JsonException exception)
         {
@@ -76,8 +84,155 @@ public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions
         }
     }
 
-    private string BuildEndpoint(string model) =>
-        $"https://generativelanguage.googleapis.com/v1beta/models/{Uri.EscapeDataString(model)}:generateContent?key={Uri.EscapeDataString(options.ApiKey)}";
+    public async IAsyncEnumerable<LLMStreamChunk> StreamGenerateAsync(
+        PromptRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(options.ApiKey))
+        {
+            yield return LLMStreamChunk.Failure("Gemini API key is not configured.");
+            yield break;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Model))
+        {
+            yield return LLMStreamChunk.Failure("Gemini model is required.");
+            yield break;
+        }
+
+        var payload = BuildPayload(request);
+        var (response, errorText) = await SendStreamHeadersWithRetriesAsync(
+            BuildStreamEndpoint(request.Model),
+            payload,
+            cancellationToken);
+
+        if (response is null)
+        {
+            yield return LLMStreamChunk.Failure(errorText ?? "Gemini stream failed.");
+            yield break;
+        }
+
+        if (!response.IsSuccessStatusCode
+            && IsTransientStatus(response.StatusCode)
+            && HasFallbackModel(request.Model))
+        {
+            response.Dispose();
+            logger?.LogWarning(
+                "Gemini stream model {Model} exhausted transient retries. Trying fallback model {FallbackModel}.",
+                request.Model,
+                options.FallbackModel);
+            (response, errorText) = await SendStreamHeadersWithRetriesAsync(
+                BuildStreamEndpoint(options.FallbackModel),
+                payload,
+                cancellationToken);
+            if (response is null)
+            {
+                yield return LLMStreamChunk.Failure(errorText ?? "Gemini stream failed.");
+                yield break;
+            }
+        }
+
+        using var ownedResponse = response;
+        if (!ownedResponse.IsSuccessStatusCode)
+        {
+            var statusCode = (int)ownedResponse.StatusCode;
+            var body = await ownedResponse.Content.ReadAsStringAsync(cancellationToken);
+            if (IsTransientStatus(ownedResponse.StatusCode))
+            {
+                yield return LLMStreamChunk.Failure(
+                    $"Gemini está temporalmente sobrecargado (HTTP {statusCode}) después de {MaxTransientRetries} reintentos. Intenta de nuevo en un momento.",
+                    statusCode);
+            }
+            else
+            {
+                yield return LLMStreamChunk.Failure(
+                    $"Gemini returned HTTP {statusCode}: {ExtractErrorMessage(body)}",
+                    statusCode);
+            }
+
+            yield break;
+        }
+
+        await using var stream = await ownedResponse.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+
+        var functionCalls = new List<LLMFunctionCall>();
+        LLMTokenUsage? latestUsage = null;
+        var emittedAnyText = false;
+
+        while (true)
+        {
+            var (line, readError) = await ReadNextLineSafeAsync(reader, cancellationToken);
+            if (readError is not null)
+            {
+                yield return LLMStreamChunk.Failure(readError);
+                yield break;
+            }
+
+            if (line is null)
+            {
+                break;
+            }
+
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("data:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var dataJson = trimmed["data:".Length..].Trim();
+            if (string.IsNullOrEmpty(dataJson) || dataJson == "[DONE]")
+            {
+                continue;
+            }
+
+            var parsed = ParseGeminiSseData(dataJson);
+            if (parsed.Error is not null)
+            {
+                yield return LLMStreamChunk.Failure(parsed.Error);
+                yield break;
+            }
+
+            if (parsed.Usage is not null)
+            {
+                latestUsage = parsed.Usage;
+            }
+
+            if (parsed.FunctionCalls.Count > 0)
+            {
+                functionCalls.AddRange(parsed.FunctionCalls);
+            }
+
+            if (!string.IsNullOrEmpty(parsed.TextDelta))
+            {
+                emittedAnyText = true;
+                yield return LLMStreamChunk.Delta(parsed.TextDelta);
+            }
+        }
+
+        if (functionCalls.Count > 0)
+        {
+            yield return LLMStreamChunk.ToolCalls(functionCalls, latestUsage);
+            yield break;
+        }
+
+        if (!emittedAnyText)
+        {
+            yield return LLMStreamChunk.Failure("Gemini response did not contain generated text.");
+            yield break;
+        }
+
+        if (latestUsage is not null)
+        {
+            yield return LLMStreamChunk.Completed(latestUsage);
+        }
+    }
+
+    private static string BuildEndpoint(string model) =>
+        $"https://generativelanguage.googleapis.com/v1beta/models/{Uri.EscapeDataString(model)}:generateContent";
+
+    private static string BuildStreamEndpoint(string model) =>
+        $"https://generativelanguage.googleapis.com/v1beta/models/{Uri.EscapeDataString(model)}:streamGenerateContent?alt=sse";
 
     private bool HasFallbackModel(string primaryModel) =>
         !string.IsNullOrWhiteSpace(options.FallbackModel)
@@ -85,6 +240,109 @@ public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions
 
     private static string ToGeminiRole(string role) =>
         role.Equals("assistant", StringComparison.OrdinalIgnoreCase) ? "model" : "user";
+
+    private async Task<(HttpResponseMessage? Response, string? ErrorText)> SendStreamHeadersWithRetriesAsync(
+        string endpoint,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt <= MaxTransientRetries; attempt++)
+        {
+            HttpResponseMessage response;
+            try
+            {
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = JsonContent.Create(payload, options: JsonOptions)
+                };
+                httpRequest.Headers.Add("x-goog-api-key", options.ApiKey);
+                response = await httpClient.SendAsync(
+                    httpRequest,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken);
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return (null, "Gemini request timed out.");
+            }
+            catch (HttpRequestException exception) when (attempt < MaxTransientRetries)
+            {
+                var rn = attempt + 1;
+                var d = TimeSpan.FromSeconds(Math.Pow(2, rn - 1));
+                logger?.LogWarning(
+                    "Gemini stream network error: {ErrorMessage}. Retry {RetryNumber} of {MaxRetries} after {Delay}.",
+                    exception.Message,
+                    rn,
+                    MaxTransientRetries,
+                    d);
+                await Task.Delay(d, cancellationToken);
+                continue;
+            }
+            catch (HttpRequestException exception)
+            {
+                return (null, $"Gemini request failed after {MaxTransientRetries} retries: {exception.Message}");
+            }
+
+            if (!IsTransientStatus(response.StatusCode) || attempt == MaxTransientRetries)
+            {
+                return (response, null);
+            }
+
+            var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
+            var retryNumber = attempt + 1;
+            var delay = GetRetryDelay(response, responseText, retryNumber);
+            logger?.LogWarning(
+                "Gemini stream transient error HTTP {StatusCode}. Retry {RetryNumber} of {MaxRetries} after {Delay}.",
+                (int)response.StatusCode,
+                retryNumber,
+                MaxTransientRetries,
+                delay);
+            response.Dispose();
+            await Task.Delay(delay, cancellationToken);
+        }
+
+        return (null, "Gemini retry loop ended unexpectedly.");
+    }
+
+    private static async Task<(string? Line, string? Error)> ReadNextLineSafeAsync(
+        StreamReader reader,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            return (line, null);
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return (null, "Gemini stream timed out.");
+        }
+        catch (HttpRequestException exception)
+        {
+            return (null, $"Gemini stream interrupted: {exception.Message}");
+        }
+        catch (IOException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return (null, $"Gemini stream I/O error: {exception.Message}");
+        }
+    }
+
+    private static (string? TextDelta, IReadOnlyList<LLMFunctionCall> FunctionCalls, LLMTokenUsage? Usage, string? Error) ParseGeminiSseData(string dataJson)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(dataJson);
+            var root = document.RootElement;
+            var usage = ExtractUsage(root);
+            var calls = ExtractFunctionCalls(root);
+            var delta = ExtractStreamTextDelta(root);
+            return (delta, calls, usage, null);
+        }
+        catch (JsonException exception)
+        {
+            return (null, [], null, $"Gemini returned malformed SSE JSON: {exception.Message}");
+        }
+    }
 
     private async Task<(HttpResponseMessage? Response, string ResponseText)> SendWithRetriesAsync(
         string endpoint,
@@ -96,7 +354,12 @@ public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions
             HttpResponseMessage response;
             try
             {
-                response = await httpClient.PostAsJsonAsync(endpoint, payload, JsonOptions, cancellationToken);
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = JsonContent.Create(payload, options: JsonOptions)
+                };
+                httpRequest.Headers.Add("x-goog-api-key", options.ApiKey);
+                response = await httpClient.SendAsync(httpRequest, cancellationToken);
             }
             catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
@@ -106,7 +369,12 @@ public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions
             {
                 var rn = attempt + 1;
                 var d = TimeSpan.FromSeconds(Math.Pow(2, rn - 1));
-                Console.WriteLine($"Gemini network error: {exception.Message}. Retry {rn} of {MaxTransientRetries} after {d}.");
+                logger?.LogWarning(
+                    "Gemini network error: {ErrorMessage}. Retry {RetryNumber} of {MaxRetries} after {Delay}.",
+                    exception.Message,
+                    rn,
+                    MaxTransientRetries,
+                    d);
                 await Task.Delay(d, cancellationToken);
                 continue;
             }
@@ -123,7 +391,12 @@ public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions
 
             var retryNumber = attempt + 1;
             var delay = GetRetryDelay(response, responseText, retryNumber);
-            Console.WriteLine($"Gemini transient error HTTP {(int)response.StatusCode}. Retry {retryNumber} of {MaxTransientRetries} after {delay}.");
+            logger?.LogWarning(
+                "Gemini transient error HTTP {StatusCode}. Retry {RetryNumber} of {MaxRetries} after {Delay}.",
+                (int)response.StatusCode,
+                retryNumber,
+                MaxTransientRetries,
+                delay);
             response.Dispose();
             await Task.Delay(delay, cancellationToken);
         }
@@ -354,6 +627,35 @@ public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions
         return string.Join(Environment.NewLine, parts);
     }
 
+    private static string ExtractStreamTextDelta(JsonElement root)
+    {
+        if (!root.TryGetProperty("candidates", out var candidates) || candidates.ValueKind != JsonValueKind.Array)
+        {
+            return string.Empty;
+        }
+
+        var builder = new System.Text.StringBuilder();
+        foreach (var candidate in candidates.EnumerateArray())
+        {
+            if (!candidate.TryGetProperty("content", out var content)
+                || !content.TryGetProperty("parts", out var contentParts)
+                || contentParts.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var part in contentParts.EnumerateArray())
+            {
+                if (part.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
+                {
+                    builder.Append(textEl.GetString());
+                }
+            }
+        }
+
+        return builder.ToString();
+    }
+
     private static IReadOnlyList<LLMFunctionCall> ExtractFunctionCalls(JsonElement root)
     {
         if (!root.TryGetProperty("candidates", out var candidates) || candidates.ValueKind != JsonValueKind.Array)
@@ -399,6 +701,19 @@ public sealed class GeminiProvider(HttpClient httpClient, IOptions<GeminiOptions
         }
 
         return calls;
+    }
+
+    private static LLMTokenUsage? ExtractUsage(JsonElement root)
+    {
+        if (!root.TryGetProperty("usageMetadata", out var usage) || usage.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var prompt = usage.TryGetProperty("promptTokenCount", out var p) && p.TryGetInt32(out var pv) ? pv : 0;
+        var candidates = usage.TryGetProperty("candidatesTokenCount", out var c) && c.TryGetInt32(out var cv) ? cv : 0;
+        var total = usage.TryGetProperty("totalTokenCount", out var t) && t.TryGetInt32(out var tv) ? tv : prompt + candidates;
+        return new LLMTokenUsage(prompt, candidates, total);
     }
 
     private static string? TryGetThoughtSignature(JsonElement part, JsonElement functionCall)

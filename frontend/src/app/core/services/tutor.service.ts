@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import type { ContextLoadProfile, Tutor } from '../models';
+import type { ContextLoadProfile, LlmProfilesCatalog, Tutor } from '../models';
 
 export interface InitialStudentProfile {
   alias?: string | null;
@@ -25,6 +25,8 @@ export interface CreateTutorRequest {
   name: string;
   description: string;
   systemPromptContent: string;
+  geminiModel?: string | null;
+  llmProfile?: string | null;
   initialStudentProfile?: InitialStudentProfile | null;
 }
 
@@ -32,7 +34,8 @@ export interface TutorRequest {
   name: string;
   description: string;
   systemPromptContent: string;
-  geminiModel: string;
+  geminiModel?: string | null;
+  llmProfile?: string | null;
 }
 
 export interface TutorMemoryPatchRequest {
@@ -47,6 +50,7 @@ export interface TutorMemoryPatchRequest {
 export class TutorService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/api/tutors`;
+  private readonly profilesUrl = `${environment.apiUrl}/api/llm-profiles`;
 
   getTutors(): Observable<Tutor[]> {
     return this.http.get<Tutor[]>(this.baseUrl);
@@ -54,6 +58,10 @@ export class TutorService {
 
   getTutor(id: number): Observable<Tutor> {
     return this.http.get<Tutor>(`${this.baseUrl}/${id}`);
+  }
+
+  getLlmProfiles(): Observable<LlmProfilesCatalog> {
+    return this.http.get<LlmProfilesCatalog>(this.profilesUrl);
   }
 
   createTutor(request: CreateTutorRequest): Observable<Tutor> {
@@ -72,9 +80,18 @@ export class TutorService {
     return this.http.post<unknown>(`${this.baseUrl}/${id}/memory-patch`, request);
   }
 
-  getPromptPreview(id: number, profile: ContextLoadProfile): Observable<string> {
+  getPromptPreview(
+    id: number,
+    profile: ContextLoadProfile,
+    sessionId?: number | null,
+  ): Observable<string> {
+    const params: Record<string, string | number> = { profile };
+    if (sessionId) {
+      params['sessionId'] = sessionId;
+    }
+
     return this.http.get(`${this.baseUrl}/${id}/prompt-preview`, {
-      params: { profile },
+      params,
       responseType: 'text',
     });
   }

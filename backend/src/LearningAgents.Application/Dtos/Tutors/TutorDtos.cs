@@ -18,7 +18,8 @@ public sealed record CreateTutorRequest(
     [param: Required, StringLength(1000)] string Description,
     [param: Required] string SystemPromptContent,
     [param: StringLength(100)] string? GeminiModel = null,
-    InitialStudentProfileRequest? InitialStudentProfile = null);
+    InitialStudentProfileRequest? InitialStudentProfile = null,
+    [param: StringLength(100)] string? LlmProfile = null);
 
 public sealed record InitialStudentProfileRequest(
     [property: JsonPropertyName("alias")] string? Alias = null,
@@ -41,4 +42,5 @@ public sealed record UpdateTutorRequest(
     [param: Required, StringLength(200)] string Name,
     [param: Required, StringLength(1000)] string Description,
     [param: Required] string SystemPromptContent,
-    [param: Required, StringLength(100)] string GeminiModel);
+    [param: StringLength(100)] string? GeminiModel = null,
+    [param: StringLength(100)] string? LlmProfile = null);

@@ -5,6 +5,8 @@ import { MainLayoutComponent } from './features/main-layout/main-layout.componen
 
 export const routes: Routes = [
   { path: '', component: MainLayoutComponent },
+  { path: 'tutors/:tutorId', component: MainLayoutComponent },
+  { path: 'tutors/:tutorId/sessions/:sessionId', component: MainLayoutComponent },
   { path: 'diagnostico', component: DiagnosticsPageComponent },
   { path: '**', redirectTo: '' },
 ];

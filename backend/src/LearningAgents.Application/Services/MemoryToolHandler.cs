@@ -10,15 +10,6 @@ internal sealed class MemoryToolHandler(
     IMemoryEntryService memoryEntryService,
     IMemoryPatchEngine memoryPatchEngine) : IMemoryToolHandler
 {
-    private static readonly string[] StandardKeys =
-    [
-        MemoryKeys.SessionMemory,
-        MemoryKeys.StudentProfile,
-        MemoryKeys.DomainMap,
-        MemoryKeys.GapsOrErrors,
-        MemoryKeys.ActivityHistory
-    ];
-
     public async Task<LLMFunctionResponse> HandleAsync(
         int tutorId,
         string toolName,
@@ -90,9 +81,9 @@ internal sealed class MemoryToolHandler(
 
     private async Task<object> ListMemoryAsync(int tutorId, CancellationToken cancellationToken)
     {
-        var entries = await memoryEntryService.GetByTutorIdAndKeysAsync(tutorId, StandardKeys, cancellationToken);
+        var entries = await memoryEntryService.GetByTutorIdAndKeysAsync(tutorId, MemoryKeys.All, cancellationToken);
         var byKey = entries.ToDictionary(entry => entry.Key, StringComparer.Ordinal);
-        var items = StandardKeys.Select(key => new
+        var items = MemoryKeys.All.Select(key => new
         {
             key,
             exists = byKey.ContainsKey(key),

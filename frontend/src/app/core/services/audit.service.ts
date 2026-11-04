@@ -21,6 +21,13 @@ export class AuditService {
     );
   }
 
+  rollbackMemoryChange(tutorId: number, changeId: number): Observable<unknown> {
+    return this.http.post(
+      `${this.apiUrl}/api/tutors/${tutorId}/memory-changes/${changeId}/rollback`,
+      {},
+    );
+  }
+
   getMemoryEntryChanges(
     memoryEntryId: number,
     page = 1,

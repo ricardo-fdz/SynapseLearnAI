@@ -1,16 +1,16 @@
 <aside class="flex h-full w-full flex-col border-r border-border bg-surface text-text-primary">
-  <div class="border-b border-border px-5 py-5">
-    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-primary">Synapse</p>
-    <div class="mt-2 flex items-center justify-between gap-3">
-      <h2 class="text-xl font-semibold">Tutores</h2>
+  <div class="border-b border-border px-5 py-4">
+    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-primary">Synapse Learn</p>
+    <div class="mt-1.5 flex items-center justify-between gap-3">
+      <h2 class="text-lg font-semibold">Tutores</h2>
       <div class="flex items-center gap-2">
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-xl bg-primary-dim px-3 py-2 text-xs font-semibold text-bubble-user-text transition hover:opacity-90 disabled:opacity-50"
+          class="inline-flex items-center gap-1.5 rounded-xl bg-primary-dim px-3 py-1.5 text-xs font-semibold text-bubble-user-text transition hover:opacity-90 disabled:opacity-50"
           [disabled]="saving()"
           (click)="openCreateTutor()"
         >
-          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
           </svg>
           Nuevo
@@ -18,7 +18,7 @@
         @if (showCloseButton) {
           <button
             type="button"
-            class="rounded-xl border border-border px-3 py-2 text-xs text-text-secondary transition hover:border-primary hover:text-primary"
+            class="rounded-xl border border-border px-3 py-1.5 text-xs text-text-secondary transition hover:border-primary hover:text-primary"
             (click)="closeRequested.emit()"
           >
             Cerrar
@@ -26,23 +26,25 @@
         }
       </div>
     </div>
-    <p class="mt-1 text-sm text-text-secondary">Sesiones agrupadas por tutor.</p>
+    <p class="mt-1 text-xs text-text-secondary">Sesiones agrupadas por tutor.</p>
   </div>
 
   <div class="flex-1 overflow-y-auto px-3 py-4">
     @if (error(); as errorMessage) {
-      <div class="mb-3 rounded-2xl border border-border-strong bg-surface-2 p-4 text-sm text-text-secondary">
+      <div role="alert" class="mb-3 rounded-2xl border border-danger-border bg-danger-bg p-4 text-sm text-danger">
         {{ errorMessage }}
       </div>
     }
 
     @if (loading()) {
-      <div class="rounded-2xl border border-border bg-surface-2 p-4 text-sm text-text-secondary">
-        Cargando tutores y sesiones...
+      <div class="space-y-3" aria-live="polite" aria-label="Cargando tutores y sesiones">
+        <div class="h-20 animate-pulse rounded-2xl border border-border bg-surface-2"></div>
+        <div class="h-16 animate-pulse rounded-2xl border border-border bg-surface-2"></div>
+        <div class="h-16 animate-pulse rounded-2xl border border-border bg-surface-2"></div>
       </div>
     } @else if (!hasTutors()) {
       <div class="rounded-2xl border border-border bg-surface-2 p-4 text-sm text-text-secondary">
-        Todavía no hay tutores. Usa el botón <span class="text-primary">Nuevo</span> para crear uno.
+        Todavía no hay tutores. Usa el botón <span class="font-medium text-primary">Nuevo</span> para crear el primero.
       </div>
     } @else {
       <div class="space-y-3">
@@ -52,6 +54,7 @@
               <button
                 type="button"
                 class="mt-2 rounded-lg p-2 text-text-secondary transition hover:bg-primary-light hover:text-primary"
+                [attr.aria-expanded]="isTutorExpanded(tutor.id)"
                 [attr.aria-label]="isTutorExpanded(tutor.id) ? 'Plegar sesiones' : 'Desplegar sesiones'"
                 (click)="toggleTutor(tutor.id)"
               >
@@ -68,44 +71,81 @@
 
               <button
                 type="button"
-                class="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-left transition hover:bg-primary-light"
+                class="min-w-0 flex-1 rounded-xl px-3 py-2 text-left transition hover:bg-primary-light"
                 [class.bg-primary-light]="appState.activeTutor()?.id === tutor.id"
                 (click)="selectTutor(tutor)"
               >
                 <span class="block truncate text-sm font-semibold text-text-primary">{{ tutor.name }}</span>
-                <span class="mt-1 block truncate text-xs text-text-secondary">
+                <span class="mt-0.5 block truncate text-xs text-text-secondary">
                   {{ latestSessionLabel(tutor.id) }}
                 </span>
               </button>
 
-              <div class="relative mt-2">
+              <div class="mt-2 flex items-center gap-0.5">
                 <button
                   type="button"
                   class="rounded-lg p-2 text-text-secondary transition hover:bg-primary-light hover:text-primary"
-                  aria-label="Acciones del tutor"
+                  title="Nueva sesión"
+                  aria-label="Nueva sesión para este tutor"
                   [disabled]="saving()"
-                  (click)="toggleMenu('tutor-' + tutor.id)"
+                  (click)="openCreateSession(tutor)"
                 >
-                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <circle cx="10" cy="4" r="1.5" />
-                    <circle cx="10" cy="10" r="1.5" />
-                    <circle cx="10" cy="16" r="1.5" />
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M10 4.5v11M4.5 10h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
                   </svg>
                 </button>
 
-                @if (openMenuId() === 'tutor-' + tutor.id) {
-                  <div class="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
-                    <button type="button" class="block w-full px-4 py-3 text-left text-sm text-text-secondary hover:bg-primary-light hover:text-primary" (click)="openCreateSession(tutor)">
-                      Nueva sesión
-                    </button>
-                    <button type="button" class="block w-full px-4 py-3 text-left text-sm text-text-secondary hover:bg-primary-light hover:text-primary" (click)="startEditTutor(tutor)">
-                      Editar tutor
-                    </button>
-                    <button type="button" class="block w-full px-4 py-3 text-left text-sm text-text-secondary hover:bg-primary-light hover:text-primary" (click)="deleteTutor(tutor)">
-                      Eliminar tutor
-                    </button>
-                  </div>
-                }
+                <div class="relative">
+                  <button
+                    type="button"
+                    class="rounded-lg p-2 text-text-secondary transition hover:bg-primary-light hover:text-primary"
+                    aria-label="Acciones del tutor"
+                    aria-haspopup="menu"
+                    [attr.aria-expanded]="openMenuId() === 'tutor-' + tutor.id"
+                    [disabled]="saving()"
+                    (click)="toggleMenu('tutor-' + tutor.id, $event)"
+                  >
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <circle cx="10" cy="4" r="1.5" />
+                      <circle cx="10" cy="10" r="1.5" />
+                      <circle cx="10" cy="16" r="1.5" />
+                    </svg>
+                  </button>
+
+                  @if (openMenuId() === 'tutor-' + tutor.id) {
+                    <div
+                      role="menu"
+                      class="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="block w-full px-4 py-2.5 text-left text-sm text-text-secondary transition hover:bg-primary-light hover:text-primary"
+                        (click)="openCreateSession(tutor)"
+                      >
+                        Nueva sesión
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="block w-full px-4 py-2.5 text-left text-sm text-text-secondary transition hover:bg-primary-light hover:text-primary"
+                        (click)="startEditTutor(tutor)"
+                      >
+                        Editar tutor
+                      </button>
+                      <div class="border-t border-border"></div>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="block w-full px-4 py-2.5 text-left text-sm text-danger transition hover:bg-danger-bg"
+                        (click)="requestDeleteTutor(tutor)"
+                      >
+                        Eliminar tutor
+                      </button>
+                    </div>
+                  }
+                </div>
               </div>
             </div>
 
@@ -114,16 +154,17 @@
                 @for (session of sessionsForTutor(tutor.id); track session.id) {
                   <div class="group flex items-center gap-1">
                     @if (appState.activeSession()?.id === session.id) {
-                      <span class="h-8 w-1 rounded-full bg-primary" aria-hidden="true"></span>
+                      <span class="h-7 w-1 rounded-full bg-primary" aria-hidden="true"></span>
                     } @else {
-                      <span class="h-8 w-1 rounded-full bg-transparent" aria-hidden="true"></span>
+                      <span class="h-7 w-1 rounded-full bg-transparent" aria-hidden="true"></span>
                     }
                     <button
                       type="button"
-                      class="min-w-0 flex-1 rounded-xl border border-transparent px-3 py-2 text-left text-sm text-text-secondary transition hover:border-border hover:bg-surface hover:text-text-primary"
+                      class="min-w-0 flex-1 rounded-xl border border-transparent px-3 py-1.5 text-left text-sm text-text-secondary transition hover:border-border hover:bg-surface hover:text-text-primary"
                       [class.bg-primary-light]="appState.activeSession()?.id === session.id"
                       [class.border-primary]="appState.activeSession()?.id === session.id"
                       [class.text-primary]="appState.activeSession()?.id === session.id"
+                      [class.font-medium]="appState.activeSession()?.id === session.id"
                       (click)="selectSession(tutor, session)"
                     >
                       <span class="block truncate">{{ session.name }}</span>
@@ -134,8 +175,10 @@
                         type="button"
                         class="rounded-lg p-2 text-text-secondary transition hover:bg-primary-light hover:text-primary"
                         aria-label="Acciones de la sesión"
+                        aria-haspopup="menu"
+                        [attr.aria-expanded]="openMenuId() === 'session-' + session.id"
                         [disabled]="saving()"
-                        (click)="toggleMenu('session-' + session.id)"
+                        (click)="toggleMenu('session-' + session.id, $event)"
                       >
                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                           <circle cx="10" cy="4" r="1.5" />
@@ -145,11 +188,26 @@
                       </button>
 
                       @if (openMenuId() === 'session-' + session.id) {
-                        <div class="absolute right-0 top-9 z-20 w-40 overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
-                          <button type="button" class="block w-full px-4 py-3 text-left text-sm text-text-secondary hover:bg-primary-light hover:text-primary" (click)="startEditSession(session)">
+                        <div
+                          role="menu"
+                          class="absolute right-0 top-9 z-20 w-40 overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
+                          (click)="$event.stopPropagation()"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            class="block w-full px-4 py-2.5 text-left text-sm text-text-secondary transition hover:bg-primary-light hover:text-primary"
+                            (click)="startEditSession(session)"
+                          >
                             Editar sesión
                           </button>
-                          <button type="button" class="block w-full px-4 py-3 text-left text-sm text-text-secondary hover:bg-primary-light hover:text-primary" (click)="deleteSession(session)">
+                          <div class="border-t border-border"></div>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            class="block w-full px-4 py-2.5 text-left text-sm text-danger transition hover:bg-danger-bg"
+                            (click)="requestDeleteSession(session)"
+                          >
                             Eliminar sesión
                           </button>
                         </div>
@@ -157,7 +215,13 @@
                     </div>
                   </div>
                 } @empty {
-                  <p class="px-3 py-2 text-xs text-text-secondary">Sin sesiones.</p>
+                  <button
+                    type="button"
+                    class="rounded-xl px-3 py-1.5 text-left text-xs font-medium text-primary transition hover:bg-primary-light"
+                    (click)="openCreateSession(tutor)"
+                  >
+                    + Crear primera sesión
+                  </button>
                 }
               </div>
             }
@@ -170,10 +234,18 @@
 
 @if (showTutorForm()) {
   <app-modal title="Crear tutor" [closeOnBackdrop]="false" (closeModal)="cancelTutorForm()">
-    <div class="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-surface-2 p-1 text-xs">
+    @if (formError(); as modalError) {
+      <div role="alert" class="mb-4 rounded-2xl border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger">
+        {{ modalError }}
+      </div>
+    }
+
+    <div role="tablist" aria-label="Pasos de creación de tutor" class="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-surface-2 p-1 text-xs">
       <button
         type="button"
-        class="rounded-xl px-3 py-2 text-text-secondary"
+        role="tab"
+        [attr.aria-selected]="createTutorStep() === 1"
+        class="rounded-xl px-3 py-2 font-medium text-text-secondary transition"
         [class.bg-primary-light]="createTutorStep() === 1"
         [class.text-primary]="createTutorStep() === 1"
         (click)="goToTutorDataStep()"
@@ -182,7 +254,9 @@
       </button>
       <button
         type="button"
-        class="rounded-xl px-3 py-2 text-text-secondary"
+        role="tab"
+        [attr.aria-selected]="createTutorStep() === 2"
+        class="rounded-xl px-3 py-2 font-medium text-text-secondary transition"
         [class.bg-primary-light]="createTutorStep() === 2"
         [class.text-primary]="createTutorStep() === 2"
         (click)="goToTutorProfileStep()"
@@ -194,83 +268,152 @@
     @if (createTutorStep() === 1) {
       <form class="space-y-4" (ngSubmit)="goToTutorProfileStep()">
         <label class="block text-sm text-text-secondary">
-          Name
-          <input class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="newTutorName" [(ngModel)]="newTutor.name" />
+          Nombre del tutor <span class="text-danger">*</span>
+          <input
+            class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="newTutorName"
+            placeholder="Ej. Mentor de Arquitectura .NET"
+            [(ngModel)]="newTutor.name"
+          />
         </label>
         <label class="block text-sm text-text-secondary">
-          Description
-          <input class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="newTutorDescription" [(ngModel)]="newTutor.description" />
+          Descripción breve
+          <input
+            class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="newTutorDescription"
+            placeholder="Ej. Práctica socrática de patrones y diseño limpio"
+            [(ngModel)]="newTutor.description"
+          />
         </label>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="block text-sm text-text-secondary">
+            Perfil de IA (LLM)
+            <select
+              class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+              name="newTutorLlmProfile"
+              [(ngModel)]="newTutor.llmProfile"
+            >
+              @if (llmProfiles().length === 0) {
+                <option [value]="defaultLlmProfile()">{{ defaultLlmProfile() }}</option>
+              } @else {
+                @for (profile of llmProfiles(); track profile.name) {
+                  <option [value]="profile.name">{{ profile.name }} ({{ profile.provider }} · {{ profile.model }})</option>
+                }
+              }
+            </select>
+          </label>
+          <label class="block text-sm text-text-secondary">
+            Modelo específico (opcional)
+            <input
+              class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+              name="newTutorModel"
+              placeholder="Usar modelo del perfil"
+              [(ngModel)]="newTutor.geminiModel"
+            />
+          </label>
+        </div>
         <label class="block text-sm text-text-secondary">
-          SystemPromptContent
-          <textarea class="mt-2 min-h-56 w-full resize-none rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="newTutorPrompt" [(ngModel)]="newTutor.systemPromptContent"></textarea>
+          Instrucciones del tutor (System prompt)
+          <textarea
+            class="mt-1.5 min-h-40 w-full resize-y rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="newTutorPrompt"
+            [(ngModel)]="newTutor.systemPromptContent"
+          ></textarea>
         </label>
-        <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary hover:border-primary hover:text-primary" [disabled]="saving()" (click)="cancelTutorForm()">Cancelar</button>
-          <button type="submit" class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text disabled:opacity-50" [disabled]="saving()">Siguiente →</button>
+        <div class="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+            [disabled]="saving()"
+            (click)="cancelTutorForm()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text transition hover:opacity-90 disabled:opacity-50"
+            [disabled]="saving()"
+          >
+            Siguiente →
+          </button>
         </div>
       </form>
     } @else {
       <form class="space-y-5" (ngSubmit)="createTutor()">
         <div>
-          <h3 class="text-lg font-semibold text-text-primary">¿Quién va a usar este tutor?</h3>
-          <p class="mt-2 text-sm leading-6 text-text-secondary">
-            Puedes completarlo ahora o dejarlo para que el tutor lo descubra en la primera sesión.
+          <h3 class="text-base font-semibold text-text-primary">¿Quién va a aprender con este tutor?</h3>
+          <p class="mt-1 text-xs leading-5 text-text-secondary">
+            Puedes completarlo ahora o dejarlo en blanco para que el tutor lo descubra en la primera sesión.
           </p>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">
           <label class="block text-sm text-text-secondary">
-            Alias
-            <input class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="profileAlias" [(ngModel)]="newStudentProfile.alias" />
+            Tu nombre o alias
+            <input
+              class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+              name="profileAlias"
+              placeholder="Ej. Santi"
+              [(ngModel)]="newStudentProfile.alias"
+            />
           </label>
           <label class="block text-sm text-text-secondary">
-            Lenguaje / tema principal
-            <input class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="profileLanguageTopic" [(ngModel)]="newStudentProfile.lenguajePrincipal" />
+            Lenguaje o área principal
+            <input
+              class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+              name="profileLanguageTopic"
+              placeholder="Ej. C#, TypeScript, Cálculo"
+              [(ngModel)]="newStudentProfile.lenguajePrincipal"
+            />
           </label>
         </div>
 
         <label class="block text-sm text-text-secondary">
           Objetivo declarado
-          <input class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="profileGoal" [(ngModel)]="newStudentProfile.objetivoDeclarado" />
+          <input
+            class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="profileGoal"
+            placeholder="Ej. Dominar arquitectura limpia y pruebas automatizadas"
+            [(ngModel)]="newStudentProfile.objetivoDeclarado"
+          />
         </label>
 
         <section class="rounded-2xl border border-border bg-surface-2 p-4">
           <p class="text-sm font-semibold text-text-primary">Estilo de aprendizaje</p>
-          <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <div class="mt-3.5 grid gap-4 md:grid-cols-2">
             <label class="block text-sm text-text-secondary">
-              Prefiere
-              <select class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="profilePrefers" [(ngModel)]="newStudentProfile.prefiere">
+              Enfoque preferido
+              <select class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary" name="profilePrefers" [(ngModel)]="newStudentProfile.prefiere">
                 <option value="">Sin definir</option>
-                @for (option of learningPreferenceOptions; track option) {
-                  <option [value]="option">{{ option }}</option>
+                @for (option of learningPreferenceOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
                 }
               </select>
             </label>
             <label class="block text-sm text-text-secondary">
               Ritmo de sesión
-              <select class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="profilePace" [(ngModel)]="newStudentProfile.ritmoSesion">
+              <select class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary" name="profilePace" [(ngModel)]="newStudentProfile.ritmoSesion">
                 <option value="">Sin definir</option>
-                @for (option of sessionPaceOptions; track option) {
-                  <option [value]="option">{{ option }}</option>
+                @for (option of sessionPaceOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
                 }
               </select>
             </label>
             <label class="block text-sm text-text-secondary">
               Reacción ante errores
-              <select class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="profileErrorReaction" [(ngModel)]="newStudentProfile.reaccionAnteErrores">
+              <select class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary" name="profileErrorReaction" [(ngModel)]="newStudentProfile.reaccionAnteErrores">
                 <option value="">Sin definir</option>
-                @for (option of errorReactionOptions; track option) {
-                  <option [value]="option">{{ option }}</option>
+                @for (option of errorReactionOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
                 }
               </select>
             </label>
             <label class="block text-sm text-text-secondary">
               Nivel de autonomía
-              <select class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="profileAutonomy" [(ngModel)]="newStudentProfile.nivelAutonomia">
+              <select class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary" name="profileAutonomy" [(ngModel)]="newStudentProfile.nivelAutonomia">
                 <option value="">Sin definir</option>
-                @for (option of autonomyOptions; track option) {
-                  <option [value]="option">{{ option }}</option>
+                @for (option of autonomyOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
                 }
               </select>
             </label>
@@ -279,31 +422,44 @@
 
         <section class="rounded-2xl border border-border bg-surface-2 p-4">
           <p class="text-sm font-semibold text-text-primary">Preferencias de comunicación</p>
-          <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <div class="mt-3.5 grid gap-4 md:grid-cols-2">
             <label class="block text-sm text-text-secondary">
               Idioma
-              <select class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="profileCommunicationLanguage" [(ngModel)]="newStudentProfile.idioma">
+              <select class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary" name="profileCommunicationLanguage" [(ngModel)]="newStudentProfile.idioma">
                 <option value="">Sin definir</option>
-                @for (option of languageOptions; track option) {
-                  <option [value]="option">{{ option }}</option>
+                @for (option of languageOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
                 }
               </select>
             </label>
             <label class="block text-sm text-text-secondary">
               Tono del tutor
-              <select class="mt-2 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="profileTutorTone" [(ngModel)]="newStudentProfile.tonoTutor">
+              <select class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary" name="profileTutorTone" [(ngModel)]="newStudentProfile.tonoTutor">
                 <option value="">Sin definir</option>
-                @for (option of toneOptions; track option) {
-                  <option [value]="option">{{ option }}</option>
+                @for (option of toneOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
                 }
               </select>
             </label>
           </div>
         </section>
 
-        <div class="flex justify-between gap-2">
-          <button type="button" class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary hover:border-primary hover:text-primary" [disabled]="saving()" (click)="goToTutorDataStep()">← Atrás</button>
-          <button type="submit" class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text disabled:opacity-50" [disabled]="saving()">Crear tutor</button>
+        <div class="flex justify-between gap-2 pt-1">
+          <button
+            type="button"
+            class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+            [disabled]="saving()"
+            (click)="goToTutorDataStep()"
+          >
+            ← Atrás
+          </button>
+          <button
+            type="submit"
+            class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text transition hover:opacity-90 disabled:opacity-50"
+            [disabled]="saving()"
+          >
+            Crear tutor
+          </button>
         </div>
       </form>
     }
@@ -312,15 +468,84 @@
 
 @if (editingTutorId(); as tutorId) {
   <app-modal title="Editar tutor" (closeModal)="cancelEditTutor()">
+    @if (formError(); as modalError) {
+      <div role="alert" class="mb-4 rounded-2xl border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger">
+        {{ modalError }}
+      </div>
+    }
+
     @if (tutors().find(tutor => tutor.id === tutorId); as tutor) {
       <form class="space-y-4" (ngSubmit)="updateTutor(tutor)">
-        <input class="w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="editTutorName" placeholder="Nombre" [(ngModel)]="editTutor.name" />
-        <textarea class="min-h-20 w-full resize-none rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="editTutorDescription" placeholder="Descripción" [(ngModel)]="editTutor.description"></textarea>
-        <textarea class="min-h-40 w-full resize-none rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="editTutorPrompt" placeholder="System prompt" [(ngModel)]="editTutor.systemPromptContent"></textarea>
-        <input class="w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="editTutorModel" placeholder="Gemini model" [(ngModel)]="editTutor.geminiModel" />
-        <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary hover:border-primary hover:text-primary" [disabled]="saving()" (click)="cancelEditTutor()">Cancelar</button>
-          <button type="submit" class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text disabled:opacity-50" [disabled]="saving()">Guardar</button>
+        <label class="block text-sm text-text-secondary">
+          Nombre del tutor <span class="text-danger">*</span>
+          <input
+            class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="editTutorName"
+            placeholder="Nombre"
+            [(ngModel)]="editTutor.name"
+          />
+        </label>
+        <label class="block text-sm text-text-secondary">
+          Descripción breve
+          <textarea
+            class="mt-1.5 min-h-20 w-full resize-y rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="editTutorDescription"
+            placeholder="Descripción"
+            [(ngModel)]="editTutor.description"
+          ></textarea>
+        </label>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="block text-sm text-text-secondary">
+            Perfil de IA (LLM)
+            <select
+              class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+              name="editTutorLlmProfile"
+              [(ngModel)]="editTutor.llmProfile"
+            >
+              @if (llmProfiles().length === 0) {
+                <option [value]="editTutor.llmProfile">{{ editTutor.llmProfile }}</option>
+              } @else {
+                @for (profile of llmProfiles(); track profile.name) {
+                  <option [value]="profile.name">{{ profile.name }} ({{ profile.provider }} · {{ profile.model }})</option>
+                }
+              }
+            </select>
+          </label>
+          <label class="block text-sm text-text-secondary">
+            Modelo específico (opcional)
+            <input
+              class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+              name="editTutorModel"
+              placeholder="Usar modelo del perfil"
+              [(ngModel)]="editTutor.geminiModel"
+            />
+          </label>
+        </div>
+        <label class="block text-sm text-text-secondary">
+          Instrucciones del tutor (System prompt)
+          <textarea
+            class="mt-1.5 min-h-40 w-full resize-y rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="editTutorPrompt"
+            placeholder="Instrucciones del tutor"
+            [(ngModel)]="editTutor.systemPromptContent"
+          ></textarea>
+        </label>
+        <div class="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+            [disabled]="saving()"
+            (click)="cancelEditTutor()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text transition hover:opacity-90 disabled:opacity-50"
+            [disabled]="saving()"
+          >
+            Guardar cambios
+          </button>
         </div>
       </form>
     }
@@ -328,14 +553,52 @@
 }
 
 @if (sessionFormTutorId(); as tutorId) {
-  <app-modal title="Crear sesión" (closeModal)="cancelSessionForm()">
+  <app-modal title="Crear sesión de estudio" (closeModal)="cancelSessionForm()">
+    @if (formError(); as modalError) {
+      <div role="alert" class="mb-4 rounded-2xl border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger">
+        {{ modalError }}
+      </div>
+    }
+
     @if (tutors().find(tutor => tutor.id === tutorId); as tutor) {
       <form class="space-y-4" (ngSubmit)="createSession(tutor)">
-        <input class="w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="newSessionName" placeholder="Nombre" [(ngModel)]="newSession.name" />
-        <input class="w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="newSessionGoal" placeholder="Objetivo" [(ngModel)]="newSession.goal" />
-        <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary hover:border-primary hover:text-primary" [disabled]="saving()" (click)="cancelSessionForm()">Cancelar</button>
-          <button type="submit" class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text disabled:opacity-50" [disabled]="saving()">Crear</button>
+        <p class="text-xs text-text-secondary">
+          Tutor: <strong class="font-medium text-text-primary">{{ tutor.name }}</strong>
+        </p>
+        <label class="block text-sm text-text-secondary">
+          Nombre de la sesión <span class="text-danger">*</span>
+          <input
+            class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="newSessionName"
+            placeholder="Ej. Repaso de inversión de dependencias"
+            [(ngModel)]="newSession.name"
+          />
+        </label>
+        <label class="block text-sm text-text-secondary">
+          Objetivo de aprendizaje (opcional)
+          <input
+            class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="newSessionGoal"
+            placeholder="Ej. Resolver un ejercicio práctico sin pistas"
+            [(ngModel)]="newSession.goal"
+          />
+        </label>
+        <div class="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+            [disabled]="saving()"
+            (click)="cancelSessionForm()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text transition hover:opacity-90 disabled:opacity-50"
+            [disabled]="saving()"
+          >
+            Crear sesión
+          </button>
         </div>
       </form>
     }
@@ -344,15 +607,108 @@
 
 @if (editingSessionId(); as sessionId) {
   <app-modal title="Editar sesión" (closeModal)="cancelSessionForm()">
+    @if (formError(); as modalError) {
+      <div role="alert" class="mb-4 rounded-2xl border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger">
+        {{ modalError }}
+      </div>
+    }
+
     @if (sessions().find(session => session.id === sessionId); as session) {
       <form class="space-y-4" (ngSubmit)="updateSession(session)">
-        <input class="w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="editSessionName" placeholder="Nombre" [(ngModel)]="editSession.name" />
-        <input class="w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary outline-none focus:border-primary" name="editSessionGoal" placeholder="Objetivo" [(ngModel)]="editSession.goal" />
-        <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary hover:border-primary hover:text-primary" [disabled]="saving()" (click)="cancelSessionForm()">Cancelar</button>
-          <button type="submit" class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text disabled:opacity-50" [disabled]="saving()">Guardar</button>
+        <label class="block text-sm text-text-secondary">
+          Nombre de la sesión <span class="text-danger">*</span>
+          <input
+            class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="editSessionName"
+            placeholder="Nombre de la sesión"
+            [(ngModel)]="editSession.name"
+          />
+        </label>
+        <label class="block text-sm text-text-secondary">
+          Objetivo de aprendizaje (opcional)
+          <input
+            class="mt-1.5 w-full rounded-xl border border-border bg-canvas px-3 py-2 text-sm text-text-primary transition focus:border-primary"
+            name="editSessionGoal"
+            placeholder="Objetivo"
+            [(ngModel)]="editSession.goal"
+          />
+        </label>
+        <div class="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+            [disabled]="saving()"
+            (click)="cancelSessionForm()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            class="rounded-xl bg-primary-dim px-4 py-2 text-sm font-semibold text-bubble-user-text transition hover:opacity-90 disabled:opacity-50"
+            [disabled]="saving()"
+          >
+            Guardar cambios
+          </button>
         </div>
       </form>
     }
+  </app-modal>
+}
+
+@if (pendingDeleteTutor(); as tutor) {
+  <app-modal title="Eliminar tutor" (closeModal)="cancelDeleteTutor()">
+    <p class="text-sm leading-6 text-text-secondary">
+      ¿Estás seguro de eliminar el tutor <strong class="font-semibold text-text-primary">{{ tutor.name }}</strong>?
+    </p>
+    <p class="mt-2 text-xs text-danger">
+      Se eliminarán también sus sesiones de estudio, mensajes y memorias pedagógicas asociadas.
+    </p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button
+        type="button"
+        class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+        [disabled]="saving()"
+        (click)="cancelDeleteTutor()"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="rounded-xl border border-danger-border bg-danger-bg px-4 py-2 text-sm font-semibold text-danger transition hover:opacity-90 disabled:opacity-50"
+        [disabled]="saving()"
+        (click)="confirmDeleteTutor()"
+      >
+        Eliminar tutor
+      </button>
+    </div>
+  </app-modal>
+}
+
+@if (pendingDeleteSession(); as session) {
+  <app-modal title="Eliminar sesión" (closeModal)="cancelDeleteSession()">
+    <p class="text-sm leading-6 text-text-secondary">
+      ¿Estás seguro de eliminar la sesión <strong class="font-semibold text-text-primary">{{ session.name }}</strong> y su historial de mensajes?
+    </p>
+    <p class="mt-2 text-xs text-text-secondary">
+      Las memorias globales del tutor (perfil, mapa de dominio, lagunas y roadmap) se conservarán.
+    </p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button
+        type="button"
+        class="rounded-xl border border-border px-4 py-2 text-sm text-text-secondary transition hover:border-primary hover:text-primary"
+        [disabled]="saving()"
+        (click)="cancelDeleteSession()"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="rounded-xl border border-danger-border bg-danger-bg px-4 py-2 text-sm font-semibold text-danger transition hover:opacity-90 disabled:opacity-50"
+        [disabled]="saving()"
+        (click)="confirmDeleteSession()"
+      >
+        Eliminar sesión
+      </button>
+    </div>
   </app-modal>
 }

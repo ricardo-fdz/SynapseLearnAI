@@ -3,18 +3,19 @@ using LearningAgents.Application.Dtos.Messages;
 using LearningAgents.Application.Interfaces;
 using LearningAgents.Domain.Entities;
 using LearningAgents.Domain.Enums;
-using LearningAgents.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace LearningAgents.Application.Services;
 
-internal sealed class MessageService(LearningAgentsDbContext dbContext) : IMessageService
+internal sealed class MessageService(ILearningAgentsDbContext dbContext) : IMessageService
 {
-    public async Task<IReadOnlyList<MessageResponse>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<MessageResponse>> GetAllAsync(int limit, CancellationToken cancellationToken)
     {
+        var normalizedLimit = Math.Clamp(limit, 1, 500);
         return await dbContext.Messages
             .AsNoTracking()
-            .OrderBy(message => message.Id)
+            .OrderByDescending(message => message.Id)
+            .Take(normalizedLimit)
             .Select(message => ToResponse(message))
             .ToListAsync(cancellationToken);
     }

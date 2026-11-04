@@ -1,13 +1,17 @@
+using LearningAgents.Application.Interfaces;
 using LearningAgents.Domain.Entities;
 using LearningAgents.Domain.Enums;
 using LearningAgents.Domain.Memory;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LearningAgents.Infrastructure.Persistence;
 
-public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbContext> options) : DbContext(options)
+public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbContext> options) : DbContext(options), ILearningAgentsDbContext
 {
     public DbSet<Tutor> Tutors => Set<Tutor>();
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
+        Database.BeginTransactionAsync(cancellationToken);
     public DbSet<StudySession> StudySessions => Set<StudySession>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<MemoryEntry> MemoryEntries => Set<MemoryEntry>();
@@ -63,7 +67,7 @@ public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbCon
             entity.Property(message => message.Role)
                 .HasConversion(
                     role => role.ToString().ToLowerInvariant(),
-                    value => Enum.Parse<MessageRole>(value, ignoreCase: true))
+                    value => Enum.Parse<MessageRole>(value, true))
                 .HasMaxLength(20)
                 .IsRequired();
             entity.Property(message => message.Content).IsRequired();
@@ -85,7 +89,7 @@ public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbCon
             entity.Property(memoryEntry => memoryEntry.SchemaVersion).IsRequired();
             entity.Property(memoryEntry => memoryEntry.CreatedAtUtc).IsRequired();
             entity.Property(memoryEntry => memoryEntry.UpdatedAtUtc).IsRequired();
-            entity.Property(memoryEntry => memoryEntry.RowVersion).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();
+            entity.Property(memoryEntry => memoryEntry.RowVersion).IsConcurrencyToken();
 
             entity.HasOne(memoryEntry => memoryEntry.Tutor)
                 .WithMany(tutor => tutor.MemoryEntries)
@@ -163,7 +167,7 @@ public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbCon
             entity.Property(memoryChange => memoryChange.Operation)
                 .HasConversion(
                     operation => operation.ToString(),
-                    value => Enum.Parse<MemoryPatchOperation>(value, ignoreCase: true))
+                    value => Enum.Parse<MemoryPatchOperation>(value, true))
                 .HasMaxLength(20)
                 .IsRequired();
             entity.Property(memoryChange => memoryChange.Path).HasMaxLength(500).IsRequired();
@@ -186,5 +190,28 @@ public sealed class LearningAgentsDbContext(DbContextOptions<LearningAgentsDbCon
             entity.HasIndex(memoryChange => memoryChange.MemoryEntryId);
             entity.HasIndex(memoryChange => memoryChange.MessageId);
         });
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        UpdateMemoryEntryConcurrencyTokens();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        UpdateMemoryEntryConcurrencyTokens();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void UpdateMemoryEntryConcurrencyTokens()
+    {
+        foreach (var entry in ChangeTracker.Entries<MemoryEntry>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+            {
+                entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
+            }
+        }
     }
 }

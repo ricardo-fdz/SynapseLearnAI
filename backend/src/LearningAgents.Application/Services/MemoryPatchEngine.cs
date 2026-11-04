@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using LearningAgents.Application.Dtos.MemoryChanges;
 using LearningAgents.Application.Dtos.MemoryEntries;
@@ -7,12 +7,11 @@ using LearningAgents.Application.Interfaces;
 using LearningAgents.Domain.Entities;
 using LearningAgents.Domain.Enums;
 using LearningAgents.Domain.Memory;
-using LearningAgents.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace LearningAgents.Application.Services;
 
-internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMemoryPatchEngine
+internal sealed class MemoryPatchEngine(ILearningAgentsDbContext dbContext) : IMemoryPatchEngine
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -87,7 +86,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
         var effectiveReason = ApplySpecificPatch(root, patch);
         var newValueJson = root.ToJsonString(JsonOptions);
 
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await dbContext.BeginTransactionAsync(cancellationToken);
 
         entry.ValueJson = newValueJson;
         entry.UpdatedAtUtc = DateTime.UtcNow;
@@ -115,7 +114,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
         {
             await transaction.RollbackAsync(cancellationToken);
             throw new InvalidMemoryPatchException(
-                "Conflicto de concurrencia: otro turno modificó la misma memoria simultáneamente. Vuelve a llamar leer_memoria para obtener la versión más reciente y reintenta tu guardar_memoria en el siguiente turno.");
+                "Conflicto de concurrencia: otro turno modificÃ³ la misma memoria simultÃ¡neamente. Vuelve a llamar leer_memoria para obtener la versiÃ³n mÃ¡s reciente y reintenta tu guardar_memoria en el siguiente turno.");
         }
 
         return new MemoryPatchResult(ToMemoryEntryResponse(entry), ToMemoryChangeResponse(change));
@@ -283,14 +282,14 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
             if (existing is not null)
             {
                 MergeObjectFields(existing, topic, overwriteId: true);
-                return patch.Reason + " [upsert: elemento ya existía, actualizado en lugar de duplicado]";
+                return patch.Reason + " [upsert: elemento ya existÃ­a, actualizado en lugar de duplicado]";
             }
 
             var existingByName = FindByNormalizedStringPropertyOrNull(topics, "nombre", topicName);
             if (existingByName is not null)
             {
                 MergeObjectFields(existingByName, topic, overwriteId: false);
-                return patch.Reason + " [upsert: tema con mismo nombre ya existía, actualizado en lugar de duplicado]";
+                return patch.Reason + " [upsert: tema con mismo nombre ya existÃ­a, actualizado en lugar de duplicado]";
             }
 
             topics.Add(topic);
@@ -309,7 +308,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
                 GetRequiredArray(root, arrayName, $"mapa_dominio requires a '{arrayName}' array."),
                 patch.TargetId!,
                 DomainMapItemLabel(arrayName),
-                $"targetId debe ser el campo 'id' de un {DomainMapItemLabel(arrayName)} existente en mapa_dominio, no su 'nombre'. Usa leer_memoria con key='mapa_dominio' para obtener los ids válidos.");
+                $"targetId debe ser el campo 'id' de un {DomainMapItemLabel(arrayName)} existente en mapa_dominio, no su 'nombre'. Usa leer_memoria con key='mapa_dominio' para obtener los ids vÃ¡lidos.");
             topic[field] = CloneValue(patch.Value);
             return patch.Reason;
         }
@@ -321,7 +320,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
         "mapa_dominio Add only supports path '/temas' or '/habilidades'.";
 
     private const string DomainMapUpdatePathError =
-        "El path debe apuntar a UN campo específico del ítem, con el formato '/temas/nombreDelCampo' o '/habilidades/nombreDelCampo' (ej. '/temas/nivel' o '/temas/notas'), siempre empezando con '/'. No puedes actualizar varios campos en una sola llamada; si necesitas actualizar tanto 'nivel' como 'notas', haz DOS llamadas a guardar_memoria, una por campo. ACCIÓN REQUERIDA AHORA: corrige el path y vuelve a llamar guardar_memoria con un solo campo a la vez, antes de responder al usuario.";
+        "El path debe apuntar a UN campo especÃ­fico del Ã­tem, con el formato '/temas/nombreDelCampo' o '/habilidades/nombreDelCampo' (ej. '/temas/nivel' o '/temas/notas'), siempre empezando con '/'. No puedes actualizar varios campos en una sola llamada; si necesitas actualizar tanto 'nivel' como 'notas', haz DOS llamadas a guardar_memoria, una por campo. ACCIÃ“N REQUERIDA AHORA: corrige el path y vuelve a llamar guardar_memoria con un solo campo a la vez, antes de responder al usuario.";
 
     private static string DomainMapArrayNameForAdd(string path)
     {
@@ -370,7 +369,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
 
             if (FindByIdOrNull(activeGaps, gapId) is not null)
             {
-                return patch.Reason + " [no-op: elemento ya existía, no se duplicó]";
+                return patch.Reason + " [no-op: elemento ya existÃ­a, no se duplicÃ³]";
             }
 
             if (root["resueltas"] is JsonArray resolvedGaps)
@@ -387,7 +386,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
                     revived.Remove("fecha_resolucion");
                     revived.Remove("como_se_resolvio");
                     activeGaps.Add(revived);
-                    return patch.Reason + " [reactivacion: laguna resuelta reapareció, vuelta a activas con veces_visto incrementado]";
+                    return patch.Reason + " [reactivacion: laguna resuelta reapareciÃ³, vuelta a activas con veces_visto incrementado]";
                 }
             }
 
@@ -443,7 +442,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
 
         if (FindByIdOrNull(projects, projectId) is not null)
         {
-            return patch.Reason + " [no-op: elemento ya existía, no se duplicó]";
+            return patch.Reason + " [no-op: elemento ya existÃ­a, no se duplicÃ³]";
         }
 
         projects.Add(CloneValue(patch.Value));
@@ -466,7 +465,7 @@ internal sealed class MemoryPatchEngine(LearningAgentsDbContext dbContext) : IMe
 
             if (FindByIdOrNull(roadmaps, roadmapId) is not null)
             {
-                return patch.Reason + " [no-op: roadmap ya existía]";
+                return patch.Reason + " [no-op: roadmap ya existÃ­a]";
             }
 
             roadmaps.Add(CloneValue(patch.Value));

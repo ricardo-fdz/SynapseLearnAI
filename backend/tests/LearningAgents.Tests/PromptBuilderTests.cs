@@ -146,6 +146,7 @@ public sealed class PromptBuilderTests
             var services = new ServiceCollection();
             services.AddDbContext<LearningAgentsDbContext>(options => options.UseSqlite(connection));
             services.AddApplicationServices();
+            services.AddTestInfrastructureBindings();
             services.AddSingleton<IOptions<GeminiOptions>>(_ => Options.Create(new GeminiOptions()));
             services.AddSingleton<IOptions<LlmProfilesOptions>>(_ => Options.Create(new LlmProfilesOptions()));
             var provider = services.BuildServiceProvider();

@@ -41,6 +41,38 @@ public sealed class TutorServiceTests
         Assert.Contains(entries, entry => entry.Key == MemoryKeys.Roadmap && entry.ValueJson == MemoryEntryDefaults.RoadmapJson);
         Assert.All(entries, entry => Assert.Equal(1, entry.SchemaVersion));
         Assert.Equal("gemini-test-default", tutor.GeminiModel);
+        Assert.Equal("gemini-test-default-profile", tutor.LlmProfile);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PreservesExistingLlmProfile_WhenOmitted_AndUpdates_WhenProvided()
+    {
+        await using var fixture = await TestFixture.CreateAsync();
+        var created = await fixture.TutorService.CreateAsync(new CreateTutorRequest(
+            "Custom Profile Tutor",
+            "Description",
+            "Prompt",
+            LlmProfile: "groq-qwen-32b"));
+
+        Assert.Equal("groq-qwen-32b", created.LlmProfile);
+
+        var updatedWithoutProfile = await fixture.TutorService.UpdateAsync(
+            created.Id,
+            new UpdateTutorRequest("Renamed Tutor", "New desc", "New prompt", "gemini-2.5-flash", LlmProfile: null));
+        Assert.True(updatedWithoutProfile);
+
+        var afterFirstUpdate = await fixture.TutorService.GetByIdAsync(created.Id);
+        Assert.NotNull(afterFirstUpdate);
+        Assert.Equal("groq-qwen-32b", afterFirstUpdate!.LlmProfile);
+
+        var updatedWithProfile = await fixture.TutorService.UpdateAsync(
+            created.Id,
+            new UpdateTutorRequest("Renamed Tutor", "New desc", "New prompt", "gemini-2.5-flash", LlmProfile: "gemini-2.0-flash"));
+        Assert.True(updatedWithProfile);
+
+        var afterSecondUpdate = await fixture.TutorService.GetByIdAsync(created.Id);
+        Assert.NotNull(afterSecondUpdate);
+        Assert.Equal("gemini-2.0-flash", afterSecondUpdate!.LlmProfile);
     }
 
     [Fact]
@@ -109,6 +141,7 @@ public sealed class TutorServiceTests
             services.AddSingleton(Options.Create(new GeminiOptions { DefaultModel = "gemini-test-default" }));
             services.AddSingleton(Options.Create(new LlmProfilesOptions { DefaultProfile = "gemini-test-default-profile" }));
             services.AddApplicationServices();
+            services.AddTestInfrastructureBindings();
             var provider = services.BuildServiceProvider();
             var db = provider.GetRequiredService<LearningAgentsDbContext>();
             await db.Database.EnsureCreatedAsync();

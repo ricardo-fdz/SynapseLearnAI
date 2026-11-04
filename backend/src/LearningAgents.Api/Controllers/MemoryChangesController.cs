@@ -9,9 +9,11 @@ namespace LearningAgents.Api.Controllers;
 public sealed class MemoryChangesController(IMemoryChangeService memoryChangeService) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<MemoryChangeResponse>>> GetAll(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<MemoryChangeResponse>>> GetAll(
+        [FromQuery] int limit = 100,
+        CancellationToken cancellationToken = default)
     {
-        var changes = await memoryChangeService.GetAllAsync(cancellationToken);
+        var changes = await memoryChangeService.GetAllAsync(limit, cancellationToken);
         return Ok(changes);
     }
 
