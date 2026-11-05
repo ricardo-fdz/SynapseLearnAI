@@ -251,6 +251,9 @@ public sealed class GeminiProvider(
             HttpResponseMessage response;
             try
             {
+                using var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                attemptCts.CancelAfter(TimeSpan.FromSeconds(15));
+
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
                 {
                     Content = JsonContent.Create(payload, options: JsonOptions)
@@ -259,11 +262,16 @@ public sealed class GeminiProvider(
                 response = await httpClient.SendAsync(
                     httpRequest,
                     HttpCompletionOption.ResponseHeadersRead,
-                    cancellationToken);
+                    attemptCts.Token);
             }
-            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return (null, "Gemini request timed out.");
+                logger?.LogWarning("Gemini stream request to {Endpoint} timed out after 15s on attempt {Attempt}.", endpoint, attempt + 1);
+                if (attempt == MaxTransientRetries || !string.IsNullOrWhiteSpace(options.FallbackModel))
+                {
+                    return (null, "Gemini request timed out.");
+                }
+                continue;
             }
             catch (HttpRequestException exception) when (attempt < MaxTransientRetries)
             {
@@ -285,6 +293,12 @@ public sealed class GeminiProvider(
 
             if (!IsTransientStatus(response.StatusCode) || attempt == MaxTransientRetries)
             {
+                return (response, null);
+            }
+
+            if (response.StatusCode == HttpStatusCode.ServiceUnavailable && !string.IsNullOrWhiteSpace(options.FallbackModel))
+            {
+                logger?.LogWarning("Gemini returned 503 Service Unavailable. Immediately failing over to fallback model {FallbackModel}.", options.FallbackModel);
                 return (response, null);
             }
 
@@ -354,16 +368,24 @@ public sealed class GeminiProvider(
             HttpResponseMessage response;
             try
             {
+                using var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                attemptCts.CancelAfter(TimeSpan.FromSeconds(15));
+
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
                 {
                     Content = JsonContent.Create(payload, options: JsonOptions)
                 };
                 httpRequest.Headers.Add("x-goog-api-key", options.ApiKey);
-                response = await httpClient.SendAsync(httpRequest, cancellationToken);
+                response = await httpClient.SendAsync(httpRequest, attemptCts.Token);
             }
-            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return (null, "Gemini request timed out.");
+                logger?.LogWarning("Gemini request to {Endpoint} timed out after 15s on attempt {Attempt}.", endpoint, attempt + 1);
+                if (attempt == MaxTransientRetries || !string.IsNullOrWhiteSpace(options.FallbackModel))
+                {
+                    return (null, "Gemini request timed out.");
+                }
+                continue;
             }
             catch (HttpRequestException exception) when (attempt < MaxTransientRetries)
             {
@@ -386,6 +408,12 @@ public sealed class GeminiProvider(
             var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!IsTransientStatus(response.StatusCode) || attempt == MaxTransientRetries)
             {
+                return (response, responseText);
+            }
+
+            if (response.StatusCode == HttpStatusCode.ServiceUnavailable && !string.IsNullOrWhiteSpace(options.FallbackModel))
+            {
+                logger?.LogWarning("Gemini returned 503 Service Unavailable. Immediately failing over to fallback model {FallbackModel}.", options.FallbackModel);
                 return (response, responseText);
             }
 
