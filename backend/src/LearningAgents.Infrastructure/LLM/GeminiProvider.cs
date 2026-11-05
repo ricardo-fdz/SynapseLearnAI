@@ -193,6 +193,11 @@ public sealed class GeminiProvider(
                 yield break;
             }
 
+            if (parsed.FinishReason is { } finishReason && !string.Equals(finishReason, "STOP", StringComparison.OrdinalIgnoreCase))
+            {
+                logger?.LogWarning("Gemini stream candidate finishReason: {FinishReason}", finishReason);
+            }
+
             if (parsed.Usage is not null)
             {
                 latestUsage = parsed.Usage;
@@ -341,7 +346,7 @@ public sealed class GeminiProvider(
         }
     }
 
-    private static (string? TextDelta, IReadOnlyList<LLMFunctionCall> FunctionCalls, LLMTokenUsage? Usage, string? Error) ParseGeminiSseData(string dataJson)
+    private static (string? TextDelta, IReadOnlyList<LLMFunctionCall> FunctionCalls, LLMTokenUsage? Usage, string? Error, string? FinishReason) ParseGeminiSseData(string dataJson)
     {
         try
         {
@@ -350,12 +355,28 @@ public sealed class GeminiProvider(
             var usage = ExtractUsage(root);
             var calls = ExtractFunctionCalls(root);
             var delta = ExtractStreamTextDelta(root);
-            return (delta, calls, usage, null);
+            var finishReason = ExtractFinishReason(root);
+            return (delta, calls, usage, null, finishReason);
         }
         catch (JsonException exception)
         {
-            return (null, [], null, $"Gemini returned malformed SSE JSON: {exception.Message}");
+            return (null, [], null, $"Gemini returned malformed SSE JSON: {exception.Message}", null);
         }
+    }
+
+    private static string? ExtractFinishReason(JsonElement root)
+    {
+        if (root.TryGetProperty("candidates", out var candidates) && candidates.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var cand in candidates.EnumerateArray())
+            {
+                if (cand.TryGetProperty("finishReason", out var fr) && fr.ValueKind == JsonValueKind.String)
+                {
+                    return fr.GetString();
+                }
+            }
+        }
+        return null;
     }
 
     private async Task<(HttpResponseMessage? Response, string ResponseText)> SendWithRetriesAsync(
@@ -529,7 +550,12 @@ public sealed class GeminiProvider(
             {
                 parts = new[] { new { text = request.SystemPrompt } }
             },
-            ["contents"] = request.Messages.Select(ToGeminiContent).ToArray()
+            ["contents"] = request.Messages.Select(ToGeminiContent).ToArray(),
+            ["generationConfig"] = new
+            {
+                maxOutputTokens = 8192,
+                temperature = 0.4
+            }
         };
 
         if (request.Tools is { Count: > 0 })
@@ -555,19 +581,33 @@ public sealed class GeminiProvider(
     {
         if (message.FunctionCalls is { Count: > 0 })
         {
+            var parts = new List<object>();
+            if (!string.IsNullOrWhiteSpace(message.Content))
+            {
+                parts.Add(new { text = message.Content });
+            }
+            parts.AddRange(message.FunctionCalls.Select(ToGeminiFunctionCallPart));
+
             return new
             {
                 role = "model",
-                parts = message.FunctionCalls.Select(ToGeminiFunctionCallPart).ToArray()
+                parts
             };
         }
 
         if (message.FunctionCall is not null)
         {
+            var parts = new List<object>();
+            if (!string.IsNullOrWhiteSpace(message.Content))
+            {
+                parts.Add(new { text = message.Content });
+            }
+            parts.Add(ToGeminiFunctionCallPart(message.FunctionCall));
+
             return new
             {
                 role = "model",
-                parts = new[] { ToGeminiFunctionCallPart(message.FunctionCall) }
+                parts
             };
         }
 
@@ -620,14 +660,24 @@ public sealed class GeminiProvider(
         return part;
     }
 
-    private static object ToGeminiFunctionResponsePart(LLMFunctionResponse functionResponse) => new
+    private static object ToGeminiFunctionResponsePart(LLMFunctionResponse functionResponse)
     {
-        functionResponse = new
+        var responseDict = new Dictionary<string, object?>
         {
-            name = functionResponse.Name,
-            response = functionResponse.Response
+            ["name"] = functionResponse.Name,
+            ["response"] = functionResponse.Response
+        };
+
+        if (!string.IsNullOrWhiteSpace(functionResponse.Id))
+        {
+            responseDict["id"] = functionResponse.Id;
         }
-    };
+
+        return new
+        {
+            functionResponse = responseDict
+        };
+    }
 
     private static string ExtractGeneratedText(JsonElement root)
     {

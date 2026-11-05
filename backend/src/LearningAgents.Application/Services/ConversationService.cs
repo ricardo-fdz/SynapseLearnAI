@@ -47,6 +47,8 @@ internal sealed class ConversationService(
         string? lastSaveMemoryFailure = null;
         var totalPromptTokens = 0;
         var totalCompletionTokens = 0;
+        var finalAssistantBuilder = new StringBuilder();
+        var completedFinalAnswer = false;
 
         for (var iteration = 1; iteration <= MaxToolIterations; iteration++)
         {
@@ -87,9 +89,19 @@ internal sealed class ConversationService(
                     new ConversationFailureDetails(ToResponse(ctx.UserMessage), appliedMemoryChanges));
             }
 
+            if (!string.IsNullOrWhiteSpace(llmResponse.Content))
+            {
+                if (finalAssistantBuilder.Length > 0)
+                {
+                    finalAssistantBuilder.Append("\n\n");
+                }
+                finalAssistantBuilder.Append(llmResponse.Content);
+            }
+
             var functionCalls = llmResponse.FunctionCalls ?? [];
             if (functionCalls.Count == 0)
             {
+                completedFinalAnswer = true;
                 break;
             }
 
@@ -98,8 +110,13 @@ internal sealed class ConversationService(
                 sessionId,
                 iteration,
                 functionCalls.Count);
-            workingMessages.Add(LLMMessage.ForFunctionCalls(functionCalls));
+
+            var textForAssistantMessage = !string.IsNullOrWhiteSpace(llmResponse.Content)
+                ? llmResponse.Content
+                : null;
+            workingMessages.Add(LLMMessage.ForFunctionCalls(functionCalls, textForAssistantMessage));
             var toolResponses = new List<LLMFunctionResponse>();
+            var allSucceeded = true;
             foreach (var functionCall in functionCalls)
             {
                 var argsText = functionCall.Args.GetRawText();
@@ -113,6 +130,11 @@ internal sealed class ConversationService(
                         cancellationToken);
                 var responseForConversation = toolResponse with { Id = functionCall.Id };
                 var responseText = responseForConversation.Response.GetRawText();
+                var succeeded = ToolSucceeded(responseForConversation.Response);
+                if (!succeeded)
+                {
+                    allSucceeded = false;
+                }
                 toolAttempts.Add($"iteration={iteration}; tool={functionCall.Name}; args={argsText}; response={responseText}");
                 toolResponses.Add(responseForConversation);
 
@@ -127,9 +149,16 @@ internal sealed class ConversationService(
             }
 
             workingMessages.Add(LLMMessage.ForFunctionResponses(toolResponses));
+
+            var onlySaveTools = functionCalls.All(call => string.Equals(call.Name, "guardar_memoria", StringComparison.OrdinalIgnoreCase));
+            if (onlySaveTools && allSucceeded && (llmResponse.Content?.Length ?? 0) >= 120)
+            {
+                completedFinalAnswer = true;
+                break;
+            }
         }
 
-        if (llmResponse is null || (llmResponse.FunctionCalls?.Count ?? 0) > 0)
+        if (!completedFinalAnswer && (llmResponse is null || (llmResponse.FunctionCalls?.Count ?? 0) > 0))
         {
             logger.LogWarning(
                 "Tool calling iteration limit ({MaxToolIterations}) reached without final assistant response for session {SessionId}. Attempts: {Attempts}",
@@ -152,7 +181,10 @@ internal sealed class ConversationService(
                 totalCompletionTokens);
         }
 
-        var assistantMessage = await PersistAssistantMessageAsync(ctx.Session, llmResponse.Content ?? string.Empty, cancellationToken);
+        var assistantMessage = await PersistAssistantMessageAsync(
+            ctx.Session,
+            finalAssistantBuilder.Length > 0 ? finalAssistantBuilder.ToString() : (llmResponse?.Content ?? string.Empty),
+            cancellationToken);
 
         return ServiceResult<ConversationMessageResponse>.Success(
             new ConversationMessageResponse(ToResponse(ctx.UserMessage), ToResponse(assistantMessage), appliedMemoryChanges));
@@ -244,15 +276,27 @@ internal sealed class ConversationService(
                 }
             }
 
+            if (iterationTextBuilder.Length > 0)
+            {
+                if (finalAssistantBuilder.Length > 0)
+                {
+                    finalAssistantBuilder.Append("\n\n");
+                }
+                finalAssistantBuilder.Append(iterationTextBuilder);
+            }
+
             if (iterationFunctionCalls is null || iterationFunctionCalls.Count == 0)
             {
-                finalAssistantBuilder.Append(iterationTextBuilder);
                 completedFinalAnswer = true;
                 break;
             }
 
-            workingMessages.Add(LLMMessage.ForFunctionCalls(iterationFunctionCalls));
+            var textForAssistantMessage = iterationTextBuilder.Length > 0
+                ? iterationTextBuilder.ToString()
+                : null;
+            workingMessages.Add(LLMMessage.ForFunctionCalls(iterationFunctionCalls, textForAssistantMessage));
             var toolResponses = new List<LLMFunctionResponse>();
+            var allSucceeded = true;
             foreach (var functionCall in iterationFunctionCalls)
             {
                 var (toolKey, toolOp) = ExtractToolMetadata(functionCall);
@@ -273,6 +317,10 @@ internal sealed class ConversationService(
                 var responseForConversation = toolResponse with { Id = functionCall.Id };
                 var responseText = responseForConversation.Response.GetRawText();
                 var succeeded = ToolSucceeded(responseForConversation.Response);
+                if (!succeeded)
+                {
+                    allSucceeded = false;
+                }
                 toolAttempts.Add($"iteration={iteration}; tool={functionCall.Name}; args={argsText}; response={responseText}");
                 toolResponses.Add(responseForConversation);
 
@@ -291,6 +339,13 @@ internal sealed class ConversationService(
             }
 
             workingMessages.Add(LLMMessage.ForFunctionResponses(toolResponses));
+
+            var onlySaveTools = iterationFunctionCalls.All(call => string.Equals(call.Name, "guardar_memoria", StringComparison.OrdinalIgnoreCase));
+            if (onlySaveTools && allSucceeded && iterationTextBuilder.Length >= 120)
+            {
+                completedFinalAnswer = true;
+                break;
+            }
         }
 
         if (!completedFinalAnswer)

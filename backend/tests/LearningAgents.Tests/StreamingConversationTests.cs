@@ -147,6 +147,76 @@ public sealed class StreamingConversationTests
         Assert.Equal("Muy bien, pasemos a recursividad.", persistedMessages[1].Content);
     }
 
+    [Fact]
+    public async Task ConversationService_StreamMessageAsync_PreservesTextAndMermaid_WhenSaveToolInvokedWithText()
+    {
+        await using var conn = new SqliteConnection("Data Source=:memory:");
+        await conn.OpenAsync();
+
+        var saveArgs = JsonSerializer.Deserialize<JsonElement>("""
+        {
+          "patch": {
+            "key": "memoria_sesion",
+            "operation": "Set",
+            "path": "/proximo_paso",
+            "value": "Revisar Stack vs Heap",
+            "reason": "Creacion de diagrama de flujo"
+          }
+        }
+        """);
+
+        const string fullExplanationWithMermaid =
+            "[Tutor] ¡Perfecto! Vamos a visualizarlo con un diagrama de flujo y arquitectura en **Mermaid**.\n\n" +
+            "```mermaid\nflowchart TD\n  Stack[Stack Memory] --> Heap[Heap Memory]\n```\n\n" +
+            "Este diagrama representa cómo se comportan los tipos por valor y los tipos por referencia en memoria.";
+
+        var router = new ScriptedStreamRouter([
+            [
+                LLMStreamChunk.Delta(fullExplanationWithMermaid),
+                LLMStreamChunk.ToolCalls([new LLMFunctionCall("guardar_memoria", saveArgs, Id: "c2")]),
+                LLMStreamChunk.Completed(new LLMTokenUsage(120, 80, 200))
+            ]
+        ]);
+
+        var services = new ServiceCollection();
+        services.AddDbContext<LearningAgentsDbContext>(o => o.UseSqlite(conn));
+        services.AddApplicationServices();
+        services.AddTestInfrastructureBindings();
+        services.AddSingleton<ILLMProviderRouter>(router);
+
+        await using var sp = services.BuildServiceProvider();
+        var db = sp.GetRequiredService<LearningAgentsDbContext>();
+        await db.Database.EnsureCreatedAsync();
+
+        var now = DateTime.UtcNow;
+        db.StudySessions.Add(new StudySession
+        {
+            Id = 21,
+            TutorId = 1,
+            Name = "Stack vs Heap",
+            Goal = "Visualizar memoria",
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        });
+        await db.SaveChangesAsync();
+
+        var conversationService = sp.GetRequiredService<IConversationService>();
+        var events = new List<ConversationStreamEvent>();
+        await foreach (var evt in conversationService.StreamMessageAsync(
+            21,
+            new CreateConversationMessageRequest("crear diagrama stack y heap", ContextLoadProfile.Standard)))
+        {
+            events.Add(evt);
+        }
+
+        var completed = Assert.IsType<ConversationMessageResponse>(events[^1].Payload);
+        Assert.Equal(fullExplanationWithMermaid, completed.AssistantMessage.Content);
+
+        var persisted = await db.Messages.AsNoTracking().Where(m => m.SessionId == 21).OrderBy(m => m.Id).ToListAsync();
+        Assert.Equal(2, persisted.Count);
+        Assert.Equal(fullExplanationWithMermaid, persisted[1].Content);
+    }
+
     private sealed class StubSseHandler(string sseBody) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>

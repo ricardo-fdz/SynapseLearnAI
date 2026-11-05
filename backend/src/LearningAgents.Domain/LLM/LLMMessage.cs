@@ -8,11 +8,11 @@ public sealed record LLMMessage(
     IReadOnlyList<LLMFunctionCall>? FunctionCalls = null,
     IReadOnlyList<LLMFunctionResponse>? FunctionResponses = null)
 {
-    public static LLMMessage ForFunctionCall(LLMFunctionCall functionCall) =>
-        new("assistant", null, functionCall);
+    public static LLMMessage ForFunctionCall(LLMFunctionCall functionCall, string? content = null) =>
+        new("assistant", content, functionCall);
 
-    public static LLMMessage ForFunctionCalls(IReadOnlyList<LLMFunctionCall> functionCalls) =>
-        new("assistant", null, FunctionCalls: functionCalls);
+    public static LLMMessage ForFunctionCalls(IReadOnlyList<LLMFunctionCall> functionCalls, string? content = null) =>
+        new("assistant", content, FunctionCalls: functionCalls);
 
     public static LLMMessage ForFunctionResponse(LLMFunctionResponse functionResponse) =>
         new("tool", null, null, functionResponse);
