@@ -87,33 +87,93 @@ export class MermaidDiagramComponent implements OnChanges, OnDestroy {
     }
   }
 
+  private sanitizeMermaidSource(code: string): string {
+    // 1. Decode HTML entities that LLMs often emit in markdown blocks
+    let fixed = code
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, "'");
+
+    // 2. Fix unquoted subgraph titles: subgraph ID [Title with special chars] -> subgraph ID ["Title with special chars"]
+    fixed = fixed.replace(/subgraph\s+([A-Za-z0-9_]+)\s*\[([^"\]\n]+)\]/g, (_match, id, title) => {
+      const cleanTitle = title.trim().replace(/"/g, "'");
+      return `subgraph ${id} ["${cleanTitle}"]`;
+    });
+
+    // 3. Fix unquoted node labels: id[Some text with "quotes" or special chars] -> id["Some text with 'quotes' or special chars"]
+    fixed = fixed.replace(/([A-Za-z0-9_]+)\[([^"\n\]][^\n\]]*)\]/g, (match, id, label) => {
+      if (label.startsWith('"') && label.endsWith('"')) {
+        return match;
+      }
+      const cleanLabel = label.trim().replace(/"/g, "'");
+      return `${id}["${cleanLabel}"]`;
+    });
+
+    // 4. Fix decision nodes: id{Some text with special chars} -> id{"Some text"}
+    fixed = fixed.replace(/([A-Za-z0-9_]+)\{([^"\n\}][^\n\}]*)\}/g, (match, id, label) => {
+      if (label.startsWith('"') && label.endsWith('"')) {
+        return match;
+      }
+      const cleanLabel = label.trim().replace(/"/g, "'");
+      return `${id}{"${cleanLabel}"}`;
+    });
+
+    // 5. Fix rounded/parenthesis nodes: id(Some text) -> id("Some text") if contains special characters
+    fixed = fixed.replace(/([A-Za-z0-9_]+)\(([^"\n\)][^\n\)]*)\)/g, (match, id, label) => {
+      if (label.startsWith('"') && label.endsWith('"')) {
+        return match;
+      }
+      if (/[<>&"';]/.test(label)) {
+        const cleanLabel = label.trim().replace(/"/g, "'");
+        return `${id}("${cleanLabel}")`;
+      }
+      return match;
+    });
+
+    return fixed;
+  }
+
   private async render(): Promise<void> {
-    const source = this.code.trim();
+    const rawSource = this.code.trim();
     const token = ++this.renderToken;
 
-    if (this.deferRender || !source) {
+    if (this.deferRender || !rawSource) {
       this.rendering.set(false);
       return;
     }
 
     this.rendering.set(true);
     const elementId = `synapse-mermaid-${++diagramCounter}`;
+    const sanitizedSource = this.sanitizeMermaidSource(rawSource);
 
     try {
       const mermaid = await loadMermaid();
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: 'strict',
+        suppressErrorRendering: true,
         theme: this.themeService.theme() === 'dark' ? 'dark' : 'neutral',
         fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
       });
 
-      const { svg } = await mermaid.render(elementId, source);
+      let svgResult: { svg: string };
+      try {
+        svgResult = await mermaid.render(elementId, sanitizedSource);
+      } catch (renderError) {
+        // Fallback to original source if sanitation altered something unexpectedly
+        if (sanitizedSource !== rawSource) {
+          svgResult = await mermaid.render(elementId + '-raw', rawSource);
+        } else {
+          throw renderError;
+        }
+      }
+
       if (token !== this.renderToken) {
         return;
       }
 
-      this.svg.set(this.sanitizer.bypassSecurityTrustHtml(svg));
+      this.svg.set(this.sanitizer.bypassSecurityTrustHtml(svgResult.svg));
       this.error.set(null);
     } catch (err: unknown) {
       if (token !== this.renderToken) {
@@ -122,9 +182,8 @@ export class MermaidDiagramComponent implements OnChanges, OnDestroy {
 
       this.svg.set(null);
       this.error.set(err instanceof Error ? err.message.split('\n')[0] : 'Sintaxis de diagrama inválida.');
-      // Mermaid leaves a temporary error node in <body> when parsing fails.
-      this.document.getElementById(`d${elementId}`)?.remove();
-      this.document.getElementById(elementId)?.remove();
+      // Clean up any error element or bomb banner Mermaid might have appended to <body>
+      this.document.querySelectorAll(`[id^="d${elementId}"], [id^="${elementId}"], #mermaid-error-svg, svg[aria-roledescription="error"]`).forEach((el) => el.remove());
     } finally {
       if (token === this.renderToken) {
         this.rendering.set(false);

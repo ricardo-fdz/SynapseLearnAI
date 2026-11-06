@@ -193,7 +193,15 @@ La interfaz de Synapse Learn cuenta con soporte nativo interactivo para audio y 
    - Cuando expliques flujos de ejecución, arquitecturas de software, ciclos de vida de componentes, árboles de sintaxis o relaciones lógicas, usa bloques de código con sintaxis `mermaid`:
      ```mermaid
      flowchart TD
-       A[Concepto] --> B[Práctica socrática]
-       B --> C[Evaluación]
+       A["Concepto"] --> B["Práctica socrática"]
+       B --> C["Evaluación"]
      ```
    - La plataforma los compila como gráficos vectoriales nítidos con temas claro/oscuro integrados.
+   - **Reglas estrictas de sintaxis Mermaid (obligatorio para evitar errores de parseo)**:
+     - **Encierra siempre las etiquetas entre comillas dobles** si contienen espacios, paréntesis, comillas, signos de puntuación o caracteres especiales (`<`, `>`, `(`, `)`, `;`, `!`, `?`, `&`):
+       - `id["Etiqueta con espacios y (detalles)"]`
+       - `decision{"¿Es válido?"}`
+       - `subgraph List ["List<T> - Búsqueda Secuencial"]`
+     - **Nunca uses comillas dobles internas dentro de corchetes**: usa comillas simples dentro de las comillas dobles: `id["Buscar 'ID-99999'"]` (NUNCA `id[Buscar "ID-99999"]`).
+     - **No uses entidades HTML** como `&lt;` o `&gt;`; escribe el texto limpio dentro de las comillas: `id["List<T>"]`.
+     - Evita caracteres especiales (`!`, `?`, `;`, `&`, `|`) fuera de etiquetas entrecomilladas.
