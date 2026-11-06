@@ -2,9 +2,11 @@ import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  HostListener,
   Input,
   OnChanges,
   OnDestroy,
+  computed,
   effect,
   inject,
   signal,
@@ -51,6 +53,9 @@ export class MermaidDiagramComponent implements OnChanges, OnDestroy {
   readonly rendering = signal(false);
   readonly showSource = signal(false);
   readonly copied = signal(false);
+  readonly isExpanded = signal(false);
+  readonly zoomLevel = signal(1.0);
+  readonly zoomPercent = computed(() => Math.round(this.zoomLevel() * 100));
 
   constructor() {
     effect(() => {
@@ -67,6 +72,53 @@ export class MermaidDiagramComponent implements OnChanges, OnDestroy {
     this.renderToken++;
     if (this.copyTimer) {
       clearTimeout(this.copyTimer);
+    }
+    this.document.body?.style?.removeProperty('overflow');
+  }
+
+  openExpanded(): void {
+    this.isExpanded.set(true);
+    this.zoomLevel.set(1.0);
+    if (this.document.body) {
+      this.document.body.style.overflow = 'hidden';
+    }
+  }
+
+  closeExpanded(): void {
+    this.isExpanded.set(false);
+    this.zoomLevel.set(1.0);
+    this.document.body?.style?.removeProperty('overflow');
+  }
+
+  zoomIn(): void {
+    this.zoomLevel.update((z) => Math.min(Math.round((z + 0.25) * 100) / 100, 3.0));
+  }
+
+  zoomOut(): void {
+    this.zoomLevel.update((z) => Math.max(Math.round((z - 0.25) * 100) / 100, 0.5));
+  }
+
+  resetZoom(): void {
+    this.zoomLevel.set(1.0);
+  }
+
+  onModalWheel(event: WheelEvent): void {
+    if (event.ctrlKey) {
+      event.preventDefault();
+      if (event.deltaY < 0) {
+        this.zoomIn();
+      } else {
+        this.zoomOut();
+      }
+    }
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: Event): void {
+    if (this.isExpanded()) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeExpanded();
     }
   }
 

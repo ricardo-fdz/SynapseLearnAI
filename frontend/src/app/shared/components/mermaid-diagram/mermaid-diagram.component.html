@@ -2,6 +2,20 @@
   <div class="diagram-header">
     <span class="diagram-label">Diagrama</span>
     <div class="diagram-actions">
+      @if (!deferRender && svg() && !showSource()) {
+        <button
+          type="button"
+          class="diagram-btn btn-highlight"
+          (click)="openExpanded()"
+          title="Ver diagrama en pantalla completa"
+          aria-label="Abrir vista ampliada del diagrama"
+        >
+          <svg class="btn-svg-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 7.5V3.75m0 0h3.75m-3.75 0 4.5 4.5m8 4.25v3.75m0 0h-3.75m3.75 0-4.5-4.5M16.25 7.5V3.75m0 0h-3.75m3.75 0-4.5 4.5M3.75 12.5v3.75m0 0h3.75m-3.75 0 4.5-4.5" />
+          </svg>
+          <span>Ampliar</span>
+        </button>
+      }
       @if (!deferRender && (svg() || error())) {
         <button type="button" class="diagram-btn" (click)="toggleSource()">
           {{ showSource() ? 'Ver diagrama' : 'Ver código' }}
@@ -27,3 +41,72 @@
     <p class="diagram-status">Dibujando diagrama…</p>
   }
 </div>
+
+@if (isExpanded() && svg(); as svgHtml) {
+  <div class="diagram-modal-backdrop" (click)="closeExpanded()" aria-hidden="true"></div>
+  <section
+    class="diagram-modal-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Vista ampliada del diagrama"
+  >
+    <header class="diagram-modal-header">
+      <div class="modal-title-group">
+        <span class="modal-badge">Diagrama</span>
+        <h3 class="modal-title">Vista ampliada</h3>
+      </div>
+      <div class="modal-toolbar">
+        <div class="zoom-controls" role="group" aria-label="Controles de zoom">
+          <button
+            type="button"
+            class="toolbar-btn"
+            (click)="zoomOut()"
+            [disabled]="zoomLevel() <= 0.5"
+            title="Reducir zoom (−)"
+            aria-label="Reducir zoom"
+          >
+            −
+          </button>
+          <span class="zoom-display" aria-live="polite">{{ zoomPercent() }}%</span>
+          <button
+            type="button"
+            class="toolbar-btn"
+            (click)="zoomIn()"
+            [disabled]="zoomLevel() >= 3.0"
+            title="Aumentar zoom (+)"
+            aria-label="Aumentar zoom"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="toolbar-btn text-btn"
+            (click)="resetZoom()"
+            [disabled]="zoomLevel() === 1.0"
+            title="Restablecer tamaño original (100%)"
+          >
+            100%
+          </button>
+        </div>
+        <button
+          type="button"
+          class="toolbar-btn close-btn"
+          (click)="closeExpanded()"
+          title="Cerrar vista ampliada (Esc)"
+          aria-label="Cerrar vista ampliada"
+        >
+          ✕ Cerrar
+        </button>
+      </div>
+    </header>
+    <div class="diagram-modal-body" (wheel)="onModalWheel($event)">
+      <div
+        class="diagram-modal-canvas"
+        role="img"
+        aria-label="Diagrama ampliado"
+        [style.transform]="'scale(' + zoomLevel() + ')'"
+        [innerHTML]="svgHtml"
+      ></div>
+    </div>
+  </section>
+}
